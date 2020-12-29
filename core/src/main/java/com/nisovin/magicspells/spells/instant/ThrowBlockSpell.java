@@ -1,36 +1,35 @@
 package com.nisovin.magicspells.spells.instant;
 
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Iterator;
-
-import org.bukkit.Material;
+import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.Subspell;
+import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
+import com.nisovin.magicspells.events.SpellTargetEvent;
+import com.nisovin.magicspells.spelleffects.EffectPosition;
+import com.nisovin.magicspells.spells.InstantSpell;
+import com.nisovin.magicspells.spells.TargetedLocationSpell;
+import com.nisovin.magicspells.util.BlockUtils;
+import com.nisovin.magicspells.util.MagicConfig;
+import com.nisovin.magicspells.util.TimeUtil;
+import com.nisovin.magicspells.util.Util;
+import com.nisovin.magicspells.util.compat.EventUtil;
 import org.bukkit.Location;
-import org.bukkit.util.Vector;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
-import org.bukkit.event.Listener;
-import org.bukkit.entity.TNTPrimed;
-import org.bukkit.event.EventHandler;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.entity.TNTPrimed;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.util.Vector;
 
-import com.nisovin.magicspells.Subspell;
-import com.nisovin.magicspells.util.Util;
-import com.nisovin.magicspells.MagicSpells;
-import com.nisovin.magicspells.util.TimeUtil;
-import com.nisovin.magicspells.util.BlockUtils;
-import com.nisovin.magicspells.util.MagicConfig;
-import com.nisovin.magicspells.spells.InstantSpell;
-import com.nisovin.magicspells.util.compat.EventUtil;
-import com.nisovin.magicspells.events.SpellTargetEvent;
-import com.nisovin.magicspells.spelleffects.EffectPosition;
-import com.nisovin.magicspells.spells.TargetedLocationSpell;
-import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 public class ThrowBlockSpell extends InstantSpell implements TargetedLocationSpell {
 
@@ -281,7 +280,7 @@ public class ThrowBlockSpell extends InstantSpell implements TargetedLocationSpe
 			}
 			double damage = event.getDamage() * power;
 			if (checkPlugins && info.caster != null) {
-				MagicSpellsEntityDamageByEntityEvent evt = new MagicSpellsEntityDamageByEntityEvent(info.caster, entity, DamageCause.ENTITY_ATTACK, damage);
+				MagicSpellsEntityDamageByEntityEvent evt = new MagicSpellsEntityDamageByEntityEvent(info.caster, thisSpell, entity, DamageCause.ENTITY_ATTACK, damage);
 				EventUtil.call(evt);
 				if (evt.isCancelled()) {
 					event.setCancelled(true);

@@ -1,28 +1,27 @@
 package com.nisovin.magicspells.spells.targeted;
 
-import java.util.List;
-
-import org.bukkit.Location;
-import org.bukkit.block.Block;
-import org.bukkit.event.EventHandler;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.metadata.MetadataValue;
-import org.bukkit.entity.LightningStrike;
-import org.bukkit.event.entity.PigZapEvent;
-import org.bukkit.metadata.FixedMetadataValue;
-import org.bukkit.event.entity.CreeperPowerEvent;
-import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
-
 import com.nisovin.magicspells.MagicSpells;
-import com.nisovin.magicspells.util.TargetInfo;
-import com.nisovin.magicspells.util.MagicConfig;
-import com.nisovin.magicspells.spells.TargetedSpell;
-import com.nisovin.magicspells.util.compat.EventUtil;
+import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
+import com.nisovin.magicspells.events.SpellTargetLocationEvent;
 import com.nisovin.magicspells.handlers.DebugHandler;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
 import com.nisovin.magicspells.spells.TargetedLocationSpell;
-import com.nisovin.magicspells.events.SpellTargetLocationEvent;
-import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
+import com.nisovin.magicspells.spells.TargetedSpell;
+import com.nisovin.magicspells.util.MagicConfig;
+import com.nisovin.magicspells.util.TargetInfo;
+import com.nisovin.magicspells.util.compat.EventUtil;
+import org.bukkit.Location;
+import org.bukkit.block.Block;
+import org.bukkit.entity.LightningStrike;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.entity.CreeperPowerEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
+import org.bukkit.event.entity.PigZapEvent;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.metadata.MetadataValue;
+
+import java.util.List;
 
 public class LightningSpell extends TargetedSpell implements TargetedLocationSpell {
 
@@ -58,7 +57,7 @@ public class LightningSpell extends TargetedSpell implements TargetedLocationSpe
 					power = targetInfo.getPower();
 				}
 				if (checkPlugins) {
-					MagicSpellsEntityDamageByEntityEvent event = new MagicSpellsEntityDamageByEntityEvent(livingEntity, entityTarget, DamageCause.ENTITY_ATTACK, 1 + additionalDamage);
+					MagicSpellsEntityDamageByEntityEvent event = new MagicSpellsEntityDamageByEntityEvent(livingEntity, this, entityTarget, DamageCause.ENTITY_ATTACK, 1 + additionalDamage);
 					EventUtil.call(event);
 					if (event.isCancelled()) entityTarget = null;
 				}

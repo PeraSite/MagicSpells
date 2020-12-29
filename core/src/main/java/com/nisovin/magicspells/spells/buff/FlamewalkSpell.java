@@ -1,21 +1,21 @@
 package com.nisovin.magicspells.spells.buff;
 
-import java.util.Map;
-import java.util.List;
-import java.util.UUID;
-import java.util.HashMap;
-
+import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.Spell;
+import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
+import com.nisovin.magicspells.spelleffects.EffectPosition;
+import com.nisovin.magicspells.spells.BuffSpell;
+import com.nisovin.magicspells.util.MagicConfig;
+import com.nisovin.magicspells.util.compat.EventUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 
-import com.nisovin.magicspells.MagicSpells;
-import com.nisovin.magicspells.spells.BuffSpell;
-import com.nisovin.magicspells.util.MagicConfig;
-import com.nisovin.magicspells.util.compat.EventUtil;
-import com.nisovin.magicspells.spelleffects.EffectPosition;
-import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public class FlamewalkSpell extends BuffSpell {
 
@@ -44,7 +44,7 @@ public class FlamewalkSpell extends BuffSpell {
 	@Override
 	public boolean castBuff(LivingEntity entity, float power, String[] args) {
 		flamewalkers.put(entity.getUniqueId(), power);
-		if (burner == null) burner = new Burner();
+		if (burner == null) burner = new Burner(this);
 		return true;
 	}
 
@@ -73,11 +73,13 @@ public class FlamewalkSpell extends BuffSpell {
 	}
 
 	private class Burner implements Runnable {
-		
+
+		private Spell spell;
 		private int taskId;
 
-		private Burner() {
-			taskId = MagicSpells.scheduleRepeatingTask(this, tickInterval, tickInterval);
+		private Burner(Spell spell) {
+			this.spell = spell;
+			this.taskId = MagicSpells.scheduleRepeatingTask(this, tickInterval, tickInterval);
 		}
 		
 		public void stop() {
@@ -105,7 +107,7 @@ public class FlamewalkSpell extends BuffSpell {
 					if (validTargetList != null && !validTargetList.canTarget(target)) continue;
 					if (livingEntity.equals(target)) continue;
 					if (checkPlugins) {
-						MagicSpellsEntityDamageByEntityEvent event = new MagicSpellsEntityDamageByEntityEvent(livingEntity, entity, DamageCause.ENTITY_ATTACK, 1);
+						MagicSpellsEntityDamageByEntityEvent event = new MagicSpellsEntityDamageByEntityEvent(livingEntity, spell, entity, DamageCause.ENTITY_ATTACK, 1);
 						EventUtil.call(event);
 						if (event.isCancelled()) continue;
 					}

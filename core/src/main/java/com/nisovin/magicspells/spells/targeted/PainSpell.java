@@ -94,7 +94,7 @@ public class PainSpell extends TargetedSpell implements TargetedEntitySpell, Spe
 		double localDamage = damage * power;
 
 		if (checkPlugins) {
-			MagicSpellsEntityDamageByEntityEvent event = new MagicSpellsEntityDamageByEntityEvent(caster, target, damageType, localDamage);
+			MagicSpellsEntityDamageByEntityEvent event = new MagicSpellsEntityDamageByEntityEvent(caster, this, target, damageType, localDamage);
 			EventUtil.call(event);
 			if (event.isCancelled()) return false;
 			if (!avoidDamageModification) localDamage = event.getDamage();

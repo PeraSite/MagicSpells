@@ -75,7 +75,7 @@ public class ForcetossSpell extends TargetedSpell implements TargetedEntitySpell
 		if (damage > 0) {
 			double dmg = damage * power;
 			if (checkPlugins) {
-				MagicSpellsEntityDamageByEntityEvent event = new MagicSpellsEntityDamageByEntityEvent(livingEntity, target, DamageCause.ENTITY_ATTACK, damage);
+				MagicSpellsEntityDamageByEntityEvent event = new MagicSpellsEntityDamageByEntityEvent(livingEntity, this, target, DamageCause.ENTITY_ATTACK, damage);
 				EventUtil.call(event);
 				if (!avoidDamageModification) dmg = event.getDamage();
 			}

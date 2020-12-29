@@ -12,7 +12,7 @@ dependencies {
     shadow group: "org.apache.commons", name: "commons-math3", version: "3.0"
     shadow "com.github.Chronoken:EffectLib:4972666012"
     shadow "com.github.PaperMC:PaperLib:435a72715a"
-    shadow "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     implementation "com.destroystokyo.paper:paper-api:1.16.1-R0.1-SNAPSHOT"
     implementation ":spigot-1.16.2"
     implementation ":spigot-1.16.1"

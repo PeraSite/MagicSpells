@@ -1,21 +1,28 @@
 package com.nisovin.magicspells.events;
 
-import java.util.Map;
-import java.util.HashMap;
-
+import com.google.common.base.Function;
+import com.google.common.collect.ImmutableMap;
+import com.nisovin.magicspells.Spell;
 import org.bukkit.entity.Entity;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableMap;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MagicSpellsEntityDamageByEntityEvent extends EntityDamageByEntityEvent implements IMagicSpellsCompatEvent {
-	
-	public MagicSpellsEntityDamageByEntityEvent(Entity damager, Entity damagee, DamageCause cause, double damage) {
+
+	private Spell spell;
+
+	public MagicSpellsEntityDamageByEntityEvent(Entity damager, Spell spell, Entity damagee, DamageCause cause, double damage) {
 		//super(damager, damagee, cause, damage);
 		super(damager, damagee, cause, getModTemplate(damage), getModifierFunctionTemplate(0D));
+		this.spell = spell;
 	}
-	
+
+	public Spell getSpell() {
+		return spell;
+	}
+
 	private static Map<DamageModifier, Double> getModTemplate(double baseDamage) {
 		return new HashMap<>(ImmutableMap.of(DamageModifier.BASE, baseDamage));
 	}

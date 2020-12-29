@@ -128,7 +128,7 @@ public class DrainlifeSpell extends TargetedSpell implements TargetedEntitySpell
 		switch (takeType) {
 			case STR_HEALTH:
 				if (pl != null && checkPlugins) {
-					MagicSpellsEntityDamageByEntityEvent event = new MagicSpellsEntityDamageByEntityEvent(livingEntity, pl, DamageCause.ENTITY_ATTACK, take);
+					MagicSpellsEntityDamageByEntityEvent event = new MagicSpellsEntityDamageByEntityEvent(livingEntity, this, pl, DamageCause.ENTITY_ATTACK, take);
 					EventUtil.call(event);
 					if (event.isCancelled()) return false;
 					if (!avoidDamageModification) take = event.getDamage();

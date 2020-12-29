@@ -1,24 +1,24 @@
 package com.nisovin.magicspells.spells.targeted;
 
-import java.util.Map;
-import java.util.UUID;
-import java.util.HashMap;
-
-import org.bukkit.event.EventHandler;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
-
 import com.nisovin.magicspells.MagicSpells;
-import com.nisovin.magicspells.util.TargetInfo;
-import com.nisovin.magicspells.util.MagicConfig;
-import com.nisovin.magicspells.spells.TargetedSpell;
-import com.nisovin.magicspells.util.compat.EventUtil;
+import com.nisovin.magicspells.Spell;
+import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
+import com.nisovin.magicspells.events.SpellApplyDamageEvent;
+import com.nisovin.magicspells.spelleffects.EffectPosition;
 import com.nisovin.magicspells.spells.SpellDamageSpell;
 import com.nisovin.magicspells.spells.TargetedEntitySpell;
-import com.nisovin.magicspells.spelleffects.EffectPosition;
-import com.nisovin.magicspells.events.SpellApplyDamageEvent;
-import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
+import com.nisovin.magicspells.spells.TargetedSpell;
+import com.nisovin.magicspells.util.MagicConfig;
+import com.nisovin.magicspells.util.TargetInfo;
+import com.nisovin.magicspells.util.compat.EventUtil;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
+import org.bukkit.event.entity.PlayerDeathEvent;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class DotSpell extends TargetedSpell implements TargetedEntitySpell, SpellDamageSpell {
 
@@ -93,7 +93,7 @@ public class DotSpell extends TargetedSpell implements TargetedEntitySpell, Spel
 			dot.dur = 0;
 			dot.power = power;
 		} else {
-			dot = new Dot(caster, target, power);
+			dot = new Dot(caster, target, power, this);
 			activeDots.put(target.getUniqueId(), dot);
 		}
 
@@ -115,12 +115,14 @@ public class DotSpell extends TargetedSpell implements TargetedEntitySpell, Spel
 
 		private int taskId;
 		private int dur = 0;
+		private Spell thisSpell;
 
-		private Dot(LivingEntity caster, LivingEntity target, float power) {
+		private Dot(LivingEntity caster, LivingEntity target, float power, Spell thisSpell) {
 			this.caster = caster;
 			this.target = target;
 			this.power = power;
 			taskId = MagicSpells.scheduleRepeatingTask(this, delay, interval);
+			this.thisSpell = thisSpell;
 		}
 		
 		@Override
@@ -142,7 +144,7 @@ public class DotSpell extends TargetedSpell implements TargetedEntitySpell, Spel
 			dam = event.getFinalDamage();
 
 			if (preventKnockback) {
-				MagicSpellsEntityDamageByEntityEvent devent = new MagicSpellsEntityDamageByEntityEvent(caster, target, DamageCause.ENTITY_ATTACK, damage);
+				MagicSpellsEntityDamageByEntityEvent devent = new MagicSpellsEntityDamageByEntityEvent(caster, thisSpell, target, DamageCause.ENTITY_ATTACK, damage);
 				EventUtil.call(devent);
 				if (!devent.isCancelled()) target.damage(devent.getDamage());
 			} else target.damage(dam, caster);
