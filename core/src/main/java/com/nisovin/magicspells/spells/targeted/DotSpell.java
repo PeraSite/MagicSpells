@@ -1,6 +1,11 @@
 package com.nisovin.magicspells.spells.targeted;
 
 import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.util.TargetInfo;
+import com.nisovin.magicspells.util.MagicConfig;
+import com.nisovin.magicspells.spells.TargetedSpell;
+import com.nisovin.magicspells.util.compat.EventUtil;
+import com.nisovin.magicspells.handlers.DebugHandler;
 import com.nisovin.magicspells.Spell;
 import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
 import com.nisovin.magicspells.events.SpellApplyDamageEvent;
@@ -20,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class DotSpell extends TargetedSpell implements TargetedEntitySpell, SpellDamageSpell {
+public class DotSpell extends TargetedSpell implements TargetedEntitySpell, DamageSpell {
 
 	private Map<UUID, Dot> activeDots;
 
@@ -33,6 +38,7 @@ public class DotSpell extends TargetedSpell implements TargetedEntitySpell, Spel
 	private boolean preventKnockback;
 
 	private String spellDamageType;
+	private DamageCause damageType;
 
 	public DotSpell(MagicConfig config, String spellName) {
 		super(config, spellName);
@@ -46,6 +52,14 @@ public class DotSpell extends TargetedSpell implements TargetedEntitySpell, Spel
 		preventKnockback = getConfigBoolean("prevent-knockback", false);
 
 		spellDamageType = getConfigString("spell-damage-type", "");
+		String damageTypeName = getConfigString("damage-type", "ENTITY_ATTACK");
+		try {
+			damageType = DamageCause.valueOf(damageTypeName.toUpperCase());
+		}
+		catch (IllegalArgumentException ignored) {
+			DebugHandler.debugBadEnumValue(DamageCause.class, damageTypeName);
+			damageType = DamageCause.ENTITY_ATTACK;
+		}
 
 		activeDots = new HashMap<>();
 	}
@@ -86,7 +100,7 @@ public class DotSpell extends TargetedSpell implements TargetedEntitySpell, Spel
 		Dot dot = activeDots.get(entity.getUniqueId());
 		dot.cancel();
 	}
-	
+
 	private void applyDot(LivingEntity caster, LivingEntity target, float power) {
 		Dot dot = activeDots.get(target.getUniqueId());
 		if (dot != null) {
@@ -100,15 +114,15 @@ public class DotSpell extends TargetedSpell implements TargetedEntitySpell, Spel
 		if (caster != null) playSpellEffects(caster, target);
 		else playSpellEffects(EffectPosition.TARGET, target);
 	}
-	
+
 	@EventHandler
 	private void onDeath(PlayerDeathEvent event) {
 		Dot dot = activeDots.get(event.getEntity().getUniqueId());
 		if (dot != null) dot.cancel();
 	}
-	
+
 	private class Dot implements Runnable {
-		
+
 		private LivingEntity caster;
 		private LivingEntity target;
 		private float power;
@@ -124,7 +138,7 @@ public class DotSpell extends TargetedSpell implements TargetedEntitySpell, Spel
 			taskId = MagicSpells.scheduleRepeatingTask(this, delay, interval);
 			this.thisSpell = thisSpell;
 		}
-		
+
 		@Override
 		public void run() {
 			dur += interval;
@@ -139,7 +153,7 @@ public class DotSpell extends TargetedSpell implements TargetedEntitySpell, Spel
 			}
 
 			double dam = damage * power;
-			SpellApplyDamageEvent event = new SpellApplyDamageEvent(DotSpell.this, caster, target, dam, DamageCause.MAGIC, spellDamageType);
+			SpellApplyDamageEvent event = new SpellApplyDamageEvent(DotSpell.this, caster, target, dam, damageType, spellDamageType);
 			EventUtil.call(event);
 			dam = event.getFinalDamage();
 

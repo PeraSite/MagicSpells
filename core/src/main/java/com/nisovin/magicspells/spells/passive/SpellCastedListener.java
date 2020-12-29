@@ -1,67 +1,75 @@
 package com.nisovin.magicspells.spells.passive;
 
-import java.util.Map;
 import java.util.List;
-import java.util.HashMap;
 import java.util.ArrayList;
 
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.entity.LivingEntity;
 
 import com.nisovin.magicspells.Spell;
-import com.nisovin.magicspells.Spellbook;
-import com.nisovin.magicspells.MagicSpells;
-import com.nisovin.magicspells.spells.PassiveSpell;
+import com.nisovin.magicspells.util.SpellFilter;
 import com.nisovin.magicspells.Spell.PostCastAction;
 import com.nisovin.magicspells.Spell.SpellCastState;
 import com.nisovin.magicspells.util.OverridePriority;
 import com.nisovin.magicspells.events.SpellCastedEvent;
+import com.nisovin.magicspells.spells.passive.util.PassiveListener;
 
 // Optional trigger variable of comma separated list of internal spell names to accept
 public class SpellCastedListener extends PassiveListener {
 
-	Map<Spell, List<PassiveSpell>> spells = new HashMap<>();
-	List<PassiveSpell> anySpell = new ArrayList<>();
-			
+	private SpellFilter filter;
+
 	@Override
-	public void registerSpell(PassiveSpell spell, PassiveTrigger trigger, String var) {
-		if (var == null || var.isEmpty()) {
-			anySpell.add(spell);
-			return;
-		}
+	public void initialize(String var) {
+		if (var == null || var.isEmpty()) return;
+
+		List<String> spells = new ArrayList<>();
+		List<String> deniedSpells = new ArrayList<>();
+		List<String> tagList = new ArrayList<>();
+		List<String> deniedTagList = new ArrayList<>();
 
 		String[] split = var.split(",");
 		for (String s : split) {
-			Spell sp = MagicSpells.getSpellByInternalName(s.trim());
-			if (sp == null) continue;
-			List<PassiveSpell> passives = spells.computeIfAbsent(sp, p -> new ArrayList<>());
-			passives.add(spell);
+			boolean denied = false;
+			s = s.trim();
+
+			if (s.startsWith("!")) {
+				s = s.substring(1);
+				denied = true;
+			}
+
+			if (s.toLowerCase().startsWith("tag:")) {
+				if (denied) {
+					deniedTagList.add(s.substring(4));
+				} else {
+					tagList.add(s.substring(4));
+				}
+			} else {
+				if (denied) {
+					deniedSpells.add(s);
+				} else {
+					spells.add(s);
+				}
+			}
 		}
+
+		filter = new SpellFilter(spells, deniedSpells, tagList, deniedTagList);
 	}
 	
 	@OverridePriority
 	@EventHandler
 	public void onSpellCast(SpellCastedEvent event) {
 		LivingEntity caster = event.getCaster();
-		if (!(caster instanceof Player)) return;
 		if (event.getSpellCastState() != SpellCastState.NORMAL) return;
 		if (event.getPostCastAction() == PostCastAction.ALREADY_HANDLED) return;
+		if (!hasSpell(caster)) return;
+		if (!canTrigger(caster)) return;
 
-		Spellbook spellbook = MagicSpells.getSpellbook((Player) caster);
-		for (PassiveSpell spell : anySpell) {
-			if (spell.equals(event.getSpell())) continue;
-			if (!spellbook.hasSpell(spell, false)) continue;
-			spell.activate((Player) caster);
-		}
+		Spell spell = event.getSpell();
+		if (!filter.check(spell)) return;
 
-		List<PassiveSpell> list = spells.get(event.getSpell());
-		if (list == null) return;
-		for (PassiveSpell spell : list) {
-			if (spell.equals(event.getSpell())) continue;
-			if (!spellbook.hasSpell(spell, false)) continue;
-			spell.activate((Player) caster);
-		}
+		if (spell.equals(passiveSpell)) return;
+		passiveSpell.activate(caster);
 	}
 
 }

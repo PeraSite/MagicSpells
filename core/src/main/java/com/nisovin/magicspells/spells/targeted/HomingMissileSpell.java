@@ -5,6 +5,8 @@ import java.util.List;
 
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.LivingEntity;
 
 import com.nisovin.magicspells.Subspell;
@@ -17,6 +19,7 @@ import com.nisovin.magicspells.util.BoundingBox;
 import com.nisovin.magicspells.spells.TargetedSpell;
 import com.nisovin.magicspells.util.compat.EventUtil;
 import com.nisovin.magicspells.util.ValidTargetChecker;
+import com.nisovin.magicspells.zones.NoMagicZoneManager;
 import com.nisovin.magicspells.castmodifiers.ModifierSet;
 import com.nisovin.magicspells.spells.TargetedEntitySpell;
 import com.nisovin.magicspells.events.SpellPreImpactEvent;
@@ -25,13 +28,18 @@ import com.nisovin.magicspells.spells.TargetedEntityFromLocationSpell;
 
 import de.slikey.effectlib.Effect;
 
+import io.papermc.lib.PaperLib;
+
 public class HomingMissileSpell extends TargetedSpell implements TargetedEntitySpell, TargetedEntityFromLocationSpell {
 
 	private HomingMissileSpell thisSpell;
 
+	private NoMagicZoneManager zoneManager;
+
 	private ModifierSet homingModifiers;
 	private List<String> homingModifiersStrings;
 
+	private Vector effectOffset;
 	private Vector relativeOffset;
 	private Vector targetRelativeOffset;
 
@@ -77,6 +85,7 @@ public class HomingMissileSpell extends TargetedSpell implements TargetedEntityS
 
 		homingModifiersStrings = getConfigStringList("homing-modifiers", null);
 
+		effectOffset = getConfigVector("effect-offset", "0,0,0");
 		relativeOffset = getConfigVector("relative-offset", "0,0.6,0");
 		targetRelativeOffset = getConfigVector("target-relative-offset", "0,0.6,0");
 
@@ -115,13 +124,18 @@ public class HomingMissileSpell extends TargetedSpell implements TargetedEntityS
 	}
 
 	@Override
-	public void initialize() {
-		super.initialize();
+	public void initializeModifiers() {
+		super.initializeModifiers();
 
 		if (homingModifiersStrings != null && !homingModifiersStrings.isEmpty()) {
 			homingModifiers = new ModifierSet(homingModifiersStrings);
 			homingModifiersStrings = null;
 		}
+	}
+
+	@Override
+	public void initialize() {
+		super.initialize();
 
 		hitSpell = new Subspell(hitSpellName);
 		if (!hitSpell.process()) {
@@ -158,6 +172,8 @@ public class HomingMissileSpell extends TargetedSpell implements TargetedEntityS
 			if (!entityLocationSpellName.isEmpty()) MagicSpells.error("HomingMissileSpell '" + internalName + "' has an invalid spell-on-entity-location defined!");
 			entityLocationSpell = null;
 		}
+
+		zoneManager = MagicSpells.getNoMagicZoneManager();
 	}
 
 	@Override
@@ -204,6 +220,8 @@ public class HomingMissileSpell extends TargetedSpell implements TargetedEntityS
 	private class MissileTracker implements Runnable {
 
 		Set<Effect> effectSet;
+		Set<Entity> entitySet;
+		Set<ArmorStand> armorStandSet;
 
 		LivingEntity caster;
 		LivingEntity target;
@@ -251,6 +269,8 @@ public class HomingMissileSpell extends TargetedSpell implements TargetedEntityS
 			hitBox = new BoundingBox(currentLocation, hitRadius, verticalHitRadius);
 
 			effectSet = playSpellEffectLibEffects(EffectPosition.PROJECTILE, currentLocation);
+			entitySet = playSpellEntityEffects(EffectPosition.PROJECTILE, currentLocation);
+			armorStandSet = playSpellArmorStandEffects(EffectPosition.PROJECTILE, currentLocation);
 		}
 
 		@Override
@@ -261,6 +281,11 @@ public class HomingMissileSpell extends TargetedSpell implements TargetedEntityS
 			}
 
 			if (!currentLocation.getWorld().equals(target.getWorld())) {
+				stop();
+				return;
+			}
+
+			if (zoneManager.willFizzle(currentLocation, thisSpell)) {
 				stop();
 				return;
 			}
@@ -293,6 +318,28 @@ public class HomingMissileSpell extends TargetedSpell implements TargetedEntityS
 			currentVelocity.multiply(projectileInertia);
 			currentVelocity.add(targetLoc.clone().subtract(currentLocation).toVector().normalize());
 			currentVelocity.normalize().multiply(velocityPerTick);
+
+			if (armorStandSet != null || entitySet != null) {
+				// Changing the effect location
+				Vector dir = currentLocation.getDirection().normalize();
+				Vector offset = new Vector(-dir.getZ(), 0.0, dir.getX()).normalize();
+				Location effectLoc = currentLocation.clone();
+				effectLoc.add(offset.multiply(effectOffset.getZ())).getBlock().getLocation();
+				effectLoc.add(effectLoc.getDirection().multiply(effectOffset.getX()));
+				effectLoc.setY(effectLoc.getY() + effectOffset.getY());
+
+				if (armorStandSet != null) {
+					for (ArmorStand armorStand : armorStandSet) {
+						PaperLib.teleportAsync(armorStand, effectLoc);
+					}
+				}
+
+				if (entitySet != null) {
+					for (Entity entity : entitySet) {
+						PaperLib.teleportAsync(entity, effectLoc);
+					}
+				}
+			}
 
 			if (stopOnHitGround && !BlockUtils.isPathable(currentLocation.getBlock())) {
 				if (hitGround && groundSpell != null) groundSpell.castAtLocation(caster, currentLocation, power);
@@ -368,6 +415,16 @@ public class HomingMissileSpell extends TargetedSpell implements TargetedEntityS
 			if (effectSet != null) {
 				for (Effect effect : effectSet) {
 					effect.cancel();
+				}
+			}
+			if (armorStandSet != null) {
+				for (ArmorStand armorStand : armorStandSet) {
+					armorStand.remove();
+				}
+			}
+			if (entitySet != null) {
+				for (Entity entity : entitySet) {
+					entity.remove();
 				}
 			}
 			caster = null;

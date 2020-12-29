@@ -56,7 +56,7 @@ public class CompatBasics {
 		// Already set up
 		if (activeExemptionAssistant != null) return;
 		
-		if (!MagicSpells.plugin.allowAnticheatIntegrations) {
+		if (!MagicSpells.hasAnticheatIntegrations()) {
 			activeExemptionAssistant = new DummyExemptionAssistant();
 			return;
 		}

@@ -1,6 +1,7 @@
 package com.nisovin.magicspells.spells.targeted;
 
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
@@ -38,7 +39,7 @@ public class ShearSpell extends TargetedSpell implements TargetedEntitySpell {
 	public ShearSpell(MagicConfig config, String spellName) {
 		super(config, spellName);
 
-		random = new Random();
+		random = ThreadLocalRandom.current();
 
 		requestedColor = getConfigString("wool-color", "");
 

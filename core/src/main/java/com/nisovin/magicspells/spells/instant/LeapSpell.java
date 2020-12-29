@@ -19,23 +19,23 @@ import com.nisovin.magicspells.spelleffects.EffectPosition;
 
 public class LeapSpell extends InstantSpell {
 
-	private Set<UUID> jumping;
+	private final Set<UUID> jumping;
 
-	private float rotation;
-	private float upwardVelocity;
-	private float forwardVelocity;
+	private final float rotation;
+	private final float upwardVelocity;
+	private final float forwardVelocity;
 
-	private boolean clientOnly;
-	private boolean cancelDamage;
-	private boolean addVelocityInstead;
+	private final boolean clientOnly;
+	private final boolean cancelDamage;
+	private final boolean addVelocityInstead;
 
+	private final String landSpellName;
 	private Subspell landSpell;
-	private String landSpellName;
 
 	public LeapSpell(MagicConfig config, String spellName) {
 		super(config, spellName);
 
-		jumping = new HashSet();
+		jumping = new HashSet<>();
 
 		rotation = getConfigFloat("rotation", 0F);
 		upwardVelocity = getConfigFloat("upward-velocity", 15F) / 10F;
@@ -69,11 +69,14 @@ public class LeapSpell extends InstantSpell {
 			Vector v = livingEntity.getLocation().getDirection();
 			v.setY(0).normalize().multiply(forwardVelocity * power).setY(upwardVelocity * power);
 			if (rotation != 0) Util.rotateVector(v, rotation);
+			v = Util.makeFinite(v);
+
 			if (clientOnly && livingEntity instanceof Player) MagicSpells.getVolatileCodeHandler().setClientVelocity((Player) livingEntity, v);
 			else {
-				if (!addVelocityInstead) livingEntity.setVelocity(v);
-				else livingEntity.setVelocity(livingEntity.getVelocity().add(v));
+				if (addVelocityInstead) livingEntity.setVelocity(livingEntity.getVelocity().add(v));
+				else livingEntity.setVelocity(v);
 			}
+
 			jumping.add(livingEntity.getUniqueId());
 			playSpellEffects(EffectPosition.CASTER, livingEntity);
 		}
@@ -81,13 +84,13 @@ public class LeapSpell extends InstantSpell {
 	}
 
 	@EventHandler
-	public void onEntityDamage(EntityDamageEvent e) {
-		if (e.getCause() != EntityDamageEvent.DamageCause.FALL) return;
-		LivingEntity livingEntity = (LivingEntity) e.getEntity();
+	public void onEntityDamage(EntityDamageEvent event) {
+		if (event.getCause() != EntityDamageEvent.DamageCause.FALL) return;
+		LivingEntity livingEntity = (LivingEntity) event.getEntity();
 		if (!jumping.remove(livingEntity.getUniqueId())) return;
 		if (landSpell != null) landSpell.cast(livingEntity, 1F);
 		playSpellEffects(EffectPosition.TARGET, livingEntity.getLocation());
-		if (cancelDamage) e.setCancelled(true);
+		if (cancelDamage) event.setCancelled(true);
 	}
 
 }

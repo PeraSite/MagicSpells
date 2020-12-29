@@ -9,6 +9,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 
 import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.util.MobUtil;
 import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.spells.InstantSpell;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
@@ -58,7 +59,7 @@ public class ConfusionSpell extends InstantSpell implements TargetedLocationSpel
 		for (int i = 0; i < monsters.size(); i++) {
 			int next = i + 1;
 			if (next >= monsters.size()) next = 0;
-			MagicSpells.getVolatileCodeHandler().setTarget(monsters.get(i), monsters.get(next));
+			MobUtil.setTarget(monsters.get(i), monsters.get(next));
 			playSpellEffects(EffectPosition.TARGET, monsters.get(i));
 			playSpellEffectsTrail(caster.getLocation(), monsters.get(i).getLocation());
 		}

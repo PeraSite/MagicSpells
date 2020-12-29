@@ -98,6 +98,7 @@ public class ManaBar {
 			newAmt += amount;
 			if (newAmt < 0) newAmt = 0;
 		}
+
 		if (newAmt == mana) return false;
 		
 		newAmt = callManaChangeEvent(newAmt, reason);

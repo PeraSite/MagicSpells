@@ -110,7 +110,7 @@ public class DanceCastListener implements Listener {
 			}
 			playerLocations.remove(playerName);
 			Integer taskId = playerTasks.remove(playerName);
-			if (taskId != null) MagicSpells.cancelTask(taskId.intValue());
+			if (taskId != null) MagicSpells.cancelTask(taskId);
 			playerCasts.remove(playerName);
 		}
 		return casted;

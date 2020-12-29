@@ -26,7 +26,7 @@ public class HasItemCondition extends Condition {
 	private boolean checkName;
 
 	@Override
-	public boolean setVar(String var) {
+	public boolean initialize(String var) {
 		try {
 			if (var.contains("|")) {
 				String[] subvardata = var.split("\\|");
@@ -49,7 +49,7 @@ public class HasItemCondition extends Condition {
 					checkData = true;
 				}
 			} else {
-				material = Material.matchMaterial(var, true);
+				material = Material.matchMaterial(var);
 				checkData = false;
 			}
 			return true;

@@ -8,7 +8,7 @@ import org.bukkit.entity.Creature;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 
-import com.nisovin.magicspells.util.Util;
+import com.nisovin.magicspells.util.MobUtil;
 import com.nisovin.magicspells.castmodifiers.Condition;
 
 public class TargetingCondition extends Condition {
@@ -18,7 +18,7 @@ public class TargetingCondition extends Condition {
 	private boolean targetingCaster = false;
 	
 	@Override
-	public boolean setVar(String var) {
+	public boolean initialize(String var) {
 		if (var == null || var.isEmpty()) {
 			anyType = true;
 			return true;
@@ -31,7 +31,7 @@ public class TargetingCondition extends Condition {
 		String[] entityTypes = var.split(",");
 		allowedTypes = new HashSet<>();
 		for (String type: entityTypes) {
-			EntityType entityType = Util.getEntityType(type);
+			EntityType entityType = MobUtil.getEntityType(type);
 			if (entityType != null) allowedTypes.add(entityType);
 		}
 		return !allowedTypes.isEmpty();

@@ -1,5 +1,8 @@
 package com.nisovin.magicspells;
 
+import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
+
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.nisovin.magicspells.castmodifiers.ModifierSet;
@@ -48,12 +51,60 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.command.CommandSender;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.Damageable;
+import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
+
+import com.nisovin.magicspells.util.Util;
+import com.nisovin.magicspells.util.IntMap;
+import com.nisovin.magicspells.util.TxtUtil;
+import com.nisovin.magicspells.util.TimeUtil;
+import com.nisovin.magicspells.util.CastItem;
+import com.nisovin.magicspells.spelleffects.*;
+import com.nisovin.magicspells.util.TargetInfo;
+import com.nisovin.magicspells.util.BlockUtils;
+import com.nisovin.magicspells.mana.ManaHandler;
+import com.nisovin.magicspells.util.VariableMod;
+import com.nisovin.magicspells.util.MagicConfig;
+import com.nisovin.magicspells.spells.BuffSpell;
+import com.nisovin.magicspells.util.LocationUtil;
+import com.nisovin.magicspells.util.InventoryUtil;
+import com.nisovin.magicspells.util.SpellReagents;
+import com.nisovin.magicspells.spells.PassiveSpell;
+import com.nisovin.magicspells.util.ExperienceUtils;
+import com.nisovin.magicspells.util.ValidTargetList;
+import com.nisovin.magicspells.util.compat.EventUtil;
+import com.nisovin.magicspells.mana.ManaChangeReason;
+import com.nisovin.magicspells.events.SpellCastEvent;
+import com.nisovin.magicspells.handlers.DebugHandler;
+import com.nisovin.magicspells.handlers.MoneyHandler;
+import com.nisovin.magicspells.events.SpellCastedEvent;
+import com.nisovin.magicspells.events.SpellTargetEvent;
+import com.nisovin.magicspells.util.ValidTargetChecker;
+import com.nisovin.magicspells.util.magicitems.MagicItem;
+import com.nisovin.magicspells.castmodifiers.ModifierSet;
+import com.nisovin.magicspells.util.magicitems.MagicItems;
+import com.nisovin.magicspells.util.managers.VariableManager;
+import com.nisovin.magicspells.util.magicitems.MagicItemDataParser;
+import com.nisovin.magicspells.spelleffects.trackers.EffectTracker;
+import com.nisovin.magicspells.spelleffects.effecttypes.EntityEffect;
+import com.nisovin.magicspells.spelleffects.effecttypes.EffectLibEffect;
+import com.nisovin.magicspells.spelleffects.effecttypes.ArmorStandEffect;
+import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
 
 import java.util.*;
 
 public abstract class Spell implements Comparable<Spell>, Listener {
+
+	protected Random random = ThreadLocalRandom.current();
 
 	protected MagicConfig config;
 
@@ -86,6 +137,10 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	protected List<String> targetModifierStrings;
 	protected List<String> locationModifierStrings;
 
+	protected List<String> varModsCast;
+	protected List<String> varModsCasted;
+	protected List<String> varModsTarget;
+
 	protected boolean debug;
 	protected boolean obeyLos;
 	protected boolean bindable;
@@ -97,6 +152,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	protected boolean interruptOnDamage;
 	protected boolean castWithLeftClick;
 	protected boolean castWithRightClick;
+	protected boolean usePreciseCooldowns;
 	protected boolean interruptOnTeleport;
 	protected boolean ignoreGlobalCooldown;
 	protected boolean spellPowerAffectsRange;
@@ -161,6 +217,9 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	protected float cooldown;
 	protected float serverCooldown;
 
+	protected float minCooldown = -1F;
+	protected float maxCooldown = -1F;
+
 	public Spell(MagicConfig config, String spellName) {
 		this.config = config;
 		this.internalName = spellName;
@@ -213,8 +272,11 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 			consumeCastItems = setupCastItems(sItems.toArray(new String[0]), "Spell '" + internalName + "' has an invalid consume cast item listed: %i");
 		} else consumeCastItems = new CastItem[0];
 
-		castWithLeftClick = config.getBoolean(path + "cast-with-left-click", MagicSpells.plugin.castWithLeftClick);
-		castWithRightClick = config.getBoolean(path + "cast-with-right-click", MagicSpells.plugin.castWithRightClick);
+		castWithLeftClick = config.getBoolean(path + "cast-with-left-click", MagicSpells.canCastWithLeftClick());
+		castWithRightClick = config.getBoolean(path + "cast-with-right-click", MagicSpells.canCastWithRightClick());
+
+		usePreciseCooldowns = config.getBoolean(path + "use-precise-cooldowns", false);
+
 		danceCastSequence = config.getString(path + "dance-cast-sequence", null);
 		requireCastItemOnCommand = config.getBoolean(path + "require-cast-item-on-command", false);
 		bindable = config.getBoolean(path + "bindable", true);
@@ -269,8 +331,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		spellPowerAffectsRange = config.getBoolean(path + "spell-power-affects-range", false);
 		obeyLos = config.getBoolean(path + "obey-los", true);
 		if (config.contains(path + "can-target")) {
-			if (config.isList(path + "can-target"))
-				validTargetList = new ValidTargetList(this, config.getStringList(path + "can-target", null));
+			if (config.isList(path + "can-target")) validTargetList = new ValidTargetList(this, config.getStringList(path + "can-target", null));
 			else validTargetList = new ValidTargetList(this, config.getString(path + "can-target", ""));
 		} else {
 			boolean targetPlayers = config.getBoolean(path + "target-players", true);
@@ -296,46 +357,30 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 			losTransparentBlocks.add(Material.VOID_AIR);
 		}
 
-		// Graphical effects
-		effectTrackerSet = new HashSet<>();
-		if (config.contains(path + "effects")) {
-			effects = new EnumMap<>(EffectPosition.class);
-			if (config.isList(path + "effects")) {
-				List<String> effectsList = config.getStringList(path + "effects", null);
-				if (effectsList != null) {
-					for (String eff : effectsList) {
-						String[] data = eff.split(" ", 3);
-						EffectPosition pos = EffectPosition.getPositionFromString(data[0]);
-						if (pos == null) continue;
-						SpellEffect effect = SpellEffect.createNewEffectByName(data[1]);
-						if (effect == null) continue;
-						effect.loadFromString(data.length > 2 ? data[2] : null);
-						List<SpellEffect> e = effects.computeIfAbsent(pos, p -> new ArrayList<>());
-						e.add(effect);
-					}
+		// Cooldowns
+		String cooldownRange = config.getString(path + "cooldown", "0");
+		try {
+			cooldown = Float.parseFloat(cooldownRange);
+		} catch (NumberFormatException e) {
+
+			// parse min max cooldowns
+			String[] cdRange = cooldownRange.split("-");
+
+			try {
+				float min = Float.parseFloat(cdRange[0]);
+				float max = Float.parseFloat(cdRange[1]);
+				if (min > max) {
+					minCooldown = max;
+					maxCooldown = min;
+				} else {
+					minCooldown = min;
+					maxCooldown = max;
 				}
-			} else if (config.isSection(path + "effects")) {
-				for (String key : config.getKeys(path + "effects")) {
-					ConfigurationSection effConf = config.getSection(path + "effects." + key);
-					EffectPosition pos = EffectPosition.getPositionFromString(effConf.getString("position", ""));
-					if (pos == null) continue;
-					SpellEffect effect = SpellEffect.createNewEffectByName(effConf.getString("effect", ""));
-					if (effect == null) continue;
-					effect.loadFromConfiguration(effConf);
-					List<SpellEffect> e = effects.computeIfAbsent(pos, p -> new ArrayList<>());
-					e.add(effect);
-				}
+			} catch (NumberFormatException ex) {
+
 			}
 		}
 
-		//TODO load the fast mapping for effects here
-
-		// Cost
-		reagents = getConfigReagents("cost");
-		if (reagents == null) reagents = new SpellReagents();
-
-		// Cooldowns
-		cooldown = (float) config.getDouble(path + "cooldown", 0);
 		serverCooldown = (float) config.getDouble(path + "server-cooldown", 0);
 		rawSharedCooldowns = config.getStringList(path + "shared-cooldowns", null);
 		ignoreGlobalCooldown = config.getBoolean(path + "ignore-global-cooldown", false);
@@ -349,6 +394,11 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		modifierStrings = config.getStringList(path + "modifiers", null);
 		targetModifierStrings = config.getStringList(path + "target-modifiers", null);
 		locationModifierStrings = config.getStringList(path + "location-modifiers", null);
+
+		// Variables
+		varModsCast = config.getStringList(path + "variable-mods-cast", null);
+		varModsCasted = config.getStringList(path + "variable-mods-casted", null);
+		varModsTarget = config.getStringList(path + "variable-mods-target", null);
 
 		// Hierarchy options
 		prerequisites = config.getStringList(path + "prerequisites", null);
@@ -382,69 +432,25 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 			}
 		}
 
-		// Variable options
-		List<String> varModsCast = config.getStringList(path + "variable-mods-cast", null);
-		if (varModsCast != null && !varModsCast.isEmpty()) {
-			variableModsCast = LinkedListMultimap.create();
-			for (String s : varModsCast) {
-				try {
-					String[] data = s.split(" ");
-					String var = data[0];
-					VariableMod varMod = new VariableMod(data[1]);
-					variableModsCast.put(var, varMod);
-				} catch (Exception e) {
-					MagicSpells.error("Invalid variable-mods-cast option for spell '" + spellName + "': " + s);
-				}
-			}
-		}
-		List<String> varModsCasted = config.getStringList(path + "variable-mods-casted", null);
-		if (varModsCasted != null && !varModsCasted.isEmpty()) {
-			variableModsCasted = LinkedListMultimap.create();
-			for (String s : varModsCasted) {
-				try {
-					String[] data = s.split(" ");
-					String var = data[0];
-					VariableMod varMod = new VariableMod(data[1]);
-					variableModsCasted.put(var, varMod);
-				} catch (Exception e) {
-					MagicSpells.error("Invalid variable-mods-casted option for spell '" + spellName + "': " + s);
-				}
-			}
-		}
-		List<String> varModsTarget = config.getStringList(path + "variable-mods-target", null);
-		if (varModsTarget != null && !varModsTarget.isEmpty()) {
-			variableModsTarget = LinkedListMultimap.create();
-			for (String s : varModsTarget) {
-				try {
-					String[] data = s.split(" ");
-					String var = data[0];
-					VariableMod varMod = new VariableMod(data[1]);
-					variableModsTarget.put(var, varMod);
-				} catch (Exception e) {
-					MagicSpells.error("Invalid variable-mods-target option for spell '" + spellName + "': " + s);
-				}
-			}
-		}
-
-		soundOnCooldown = config.getString(path + "sound-on-cooldown", MagicSpells.plugin.soundFailOnCooldown);
-		soundMissingReagents = config.getString(path + "sound-missing-reagents", MagicSpells.plugin.soundFailMissingReagents);
+		soundOnCooldown = config.getString(path + "sound-on-cooldown", MagicSpells.getCooldownSound());
+		soundMissingReagents = config.getString(path + "sound-missing-reagents", MagicSpells.getMissingReagentsSound());
 		if (soundOnCooldown != null && soundOnCooldown.isEmpty()) soundOnCooldown = null;
 		if (soundMissingReagents != null && soundMissingReagents.isEmpty()) soundMissingReagents = null;
 
 		// Strings
 		strCost = config.getString(path + "str-cost", null);
-		strCantCast = config.getString(path + "str-cant-cast", MagicSpells.plugin.strCantCast);
+		strCantCast = config.getString(path + "str-cant-cast", MagicSpells.getCantCastMessage());
 		strCantBind = config.getString(path + "str-cant-bind", null);
 		strCastSelf = config.getString(path + "str-cast-self", null);
 		strCastStart = config.getString(path + "str-cast-start", null);
 		strCastOthers = config.getString(path + "str-cast-others", null);
-		strOnCooldown = config.getString(path + "str-on-cooldown", MagicSpells.plugin.strOnCooldown);
-		strWrongWorld = config.getString(path + "str-wrong-world", MagicSpells.plugin.strWrongWorld);
+		strOnCooldown = config.getString(path + "str-on-cooldown", MagicSpells.getOnCooldownMessage());
+		strWrongWorld = config.getString(path + "str-wrong-world", MagicSpells.getWrongWorldMessage());
 		strInterrupted = config.getString(path + "str-interrupted", null);
-		strXpAutoLearned = config.getString(path + "str-xp-auto-learned", MagicSpells.plugin.strXpAutoLearned);
+		strXpAutoLearned = config.getString(path + "str-xp-auto-learned", MagicSpells.getXpAutoLearnedMessage());
 		strWrongCastItem = config.getString(path + "str-wrong-cast-item", strCantCast);
 		strModifierFailed = config.getString(path + "str-modifier-failed", null);
-		strMissingReagents = config.getString(path + "str-missing-reagents", MagicSpells.plugin.strMissingReagents);
+		strMissingReagents = config.getString(path + "str-missing-reagents", MagicSpells.getMissingReagentsMessage());
 		if (strXpAutoLearned != null) strXpAutoLearned = strXpAutoLearned.replace("%s", name);
 
 		tags = new HashSet<>(config.getStringList(path + "tags", new ArrayList<>()));
@@ -537,13 +543,107 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		return reagents;
 	}
 
+	protected void initializeVariables() {
+		// Variable options
+		if (varModsCast != null && !varModsCast.isEmpty()) {
+			variableModsCast = LinkedListMultimap.create();
+			for (String s : varModsCast) {
+				try {
+					String[] data = s.split(" ");
+					String var = data[0];
+					VariableMod varMod = new VariableMod(data[1]);
+					variableModsCast.put(var, varMod);
+				} catch (Exception e) {
+					MagicSpells.error("Invalid variable-mods-cast option for spell '" + internalName + "': " + s);
+				}
+			}
+		}
+		if (varModsCasted != null && !varModsCasted.isEmpty()) {
+			variableModsCasted = LinkedListMultimap.create();
+			for (String s : varModsCasted) {
+				try {
+					String[] data = s.split(" ");
+					String var = data[0];
+					VariableMod varMod = new VariableMod(data[1]);
+					variableModsCasted.put(var, varMod);
+				} catch (Exception e) {
+					MagicSpells.error("Invalid variable-mods-casted option for spell '" + internalName + "': " + s);
+				}
+			}
+		}
+		if (varModsTarget != null && !varModsTarget.isEmpty()) {
+			variableModsTarget = LinkedListMultimap.create();
+			for (String s : varModsTarget) {
+				try {
+					String[] data = s.split(" ");
+					String var = data[0];
+					VariableMod varMod = new VariableMod(data[1]);
+					variableModsTarget.put(var, varMod);
+				} catch (Exception e) {
+					MagicSpells.error("Invalid variable-mods-target option for spell '" + internalName + "': " + s);
+				}
+			}
+		}
+
+		// Cost
+		reagents = getConfigReagents("cost");
+		if (reagents == null) reagents = new SpellReagents();
+	}
+
+	protected void initializeSpellEffects() {
+		// Graphical effects
+		String path = "spells" + '.' + internalName + '.';
+		effectTrackerSet = new HashSet<>();
+		if (!config.contains(path + "effects")) return;
+
+		effects = new EnumMap<>(EffectPosition.class);
+		if (config.isList(path + "effects")) {
+			MagicSpells.error("Warning: Single line effects are deprecated. Usage encountered on spell: " + internalName);
+			return;
+		}
+
+		if (!config.isSection(path + "effects")) return;
+		for (String key : config.getKeys(path + "effects")) {
+			ConfigurationSection section = config.getSection(path + "effects." + key);
+			if (section == null) {
+				MagicSpells.error("Spell effect '" + key + "' on spell '" + internalName + "' does not contain a configuration section.");
+				continue;
+			}
+
+			String positionName = section.getString("position", "");
+			if (positionName == null || positionName.isEmpty()) {
+				MagicSpells.error("Spell effect '" + key + "' on spell '" + internalName + "' does not contain a 'position' value.");
+				continue;
+			}
+
+			EffectPosition position = EffectPosition.getPositionFromString(positionName);
+			if (position == null) {
+				MagicSpells.error("Spell effect '" + key + "' on spell '" + internalName + "' does not have a valid 'position' defined: " + positionName);
+				continue;
+			}
+
+			String effectType = section.getString("effect", "");
+			if (effectType == null || effectType.isEmpty()) {
+				MagicSpells.error("Spell effect '" + key + "' on spell '" + internalName + "' does not contain an 'effect' value.");
+				continue;
+			}
+
+			SpellEffect effect = MagicSpells.getSpellEffectManager().getSpellEffectByName(effectType);
+			if (effect == null) {
+				MagicSpells.error("Spell effect '" + key + "' on spell '" + internalName + "' does not have a valid 'effect' defined: " + effectType);
+				continue;
+			}
+
+			effect.loadFromConfiguration(section);
+
+			List<SpellEffect> effectList = effects.computeIfAbsent(position, p -> new ArrayList<>());
+			effectList.add(effect);
+		}
+	}
+
 	// DEBUG INFO: level 2, adding modifiers to internalname
 	// DEBUG INFO: level 2, adding target modifiers to internalname
-
-	/**
-	 * This method is called immediately after all spells have been loaded.
-	 */
-	protected void initialize() {
+	protected void initializeModifiers() {
 		// Modifiers
 		if (modifierStrings != null && !modifierStrings.isEmpty()) {
 			debug(2, "Adding modifiers to " + internalName + " spell");
@@ -561,6 +661,21 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 			locationModifierStrings = null;
 		}
 
+		if (effects != null && !effects.isEmpty()) {
+			for (EffectPosition position : effects.keySet()) {
+				if (position == null) continue;
+
+				List<SpellEffect> spellEffects = effects.get(position);
+				if (spellEffects == null || spellEffects.isEmpty()) continue;
+				spellEffects.forEach(SpellEffect::initializeModifiers);
+			}
+		}
+	}
+
+	/**
+	 * This method is called immediately after all spells have been loaded.
+	 */
+	protected void initialize() {
 		// Process shared cooldowns
 		if (rawSharedCooldowns != null) {
 			sharedCooldowns = new HashMap<>();
@@ -578,8 +693,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		registerEvents();
 
 		// Other processing
-		if (spellNameOnInterrupt != null && !spellNameOnInterrupt.isEmpty())
-			spellOnInterrupt = MagicSpells.getSpellByInternalName(spellNameOnInterrupt);
+		if (spellNameOnInterrupt != null && !spellNameOnInterrupt.isEmpty()) spellOnInterrupt = MagicSpells.getSpellByInternalName(spellNameOnInterrupt);
 	}
 
 	protected boolean configKeyExists(String key) {
@@ -589,7 +703,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	/**
 	 * Access an integer config value for this spell.
 	 *
-	 * @param key          The key of the config value
+	 * @param key The key of the config value
 	 * @param defaultValue The value to return if it does not exist in the config
 	 *
 	 * @return The config value, or defaultValue if it does not exist
@@ -601,7 +715,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	/**
 	 * Access a long config value for this spell.
 	 *
-	 * @param key          The key of the config value
+	 * @param key The key of the config value
 	 * @param defaultValue The value to return if it does not exist in the config
 	 *
 	 * @return The config value, or defaultValue if it does not exist
@@ -613,7 +727,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	/**
 	 * Access a boolean config value for this spell.
 	 *
-	 * @param key          The key of the config value
+	 * @param key The key of the config value
 	 * @param defaultValue The value to return if it does not exist in the config
 	 *
 	 * @return The config value, or defaultValue if it does not exist
@@ -625,7 +739,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	/**
 	 * Access a String config value for this spell.
 	 *
-	 * @param key          The key of the config value
+	 * @param key The key of the config value
 	 * @param defaultValue The value to return if it does not exist in the config
 	 *
 	 * @return The config value, or defaultValue if it does not exist
@@ -637,7 +751,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	/**
 	 * Access a Vector config value for this spell.
 	 *
-	 * @param key          The key of the config value
+	 * @param key The key of the config value
 	 * @param defaultValue The value to return if it does not exist in the config
 	 *
 	 * @return The config value, or defaultValue if it does not exist
@@ -650,8 +764,9 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	/**
 	 * Access a float config value for this spell.
 	 *
-	 * @param key          The key of the config value
+	 * @param key The key of the config value
 	 * @param defaultValue The value to return if it does not exist in the config
+	 *
 	 * @return The config value, or defaultValue if it does not exist
 	 */
 	protected float getConfigFloat(String key, float defaultValue) {
@@ -661,8 +776,9 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	/**
 	 * Access a double config value for this spell.
 	 *
-	 * @param key          The key of the config value
+	 * @param key The key of the config value
 	 * @param defaultValue The value to return if it does not exist in the config
+	 *
 	 * @return The config value, or defaultValue if it does not exist
 	 */
 	protected double getConfigDouble(String key, double defaultValue) {
@@ -714,19 +830,16 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 			action = PostCastAction.DELAYED;
 			sendMessage(strCastStart, livingEntity, args);
 			playSpellEffects(EffectPosition.START_CAST, livingEntity);
-			if (MagicSpells.plugin.useExpBarAsCastTimeBar) new DelayedSpellCastWithBar(spellCast);
+			if (MagicSpells.useExpBarAsCastTimeBar()) new DelayedSpellCastWithBar(spellCast);
 			else new DelayedSpellCast(spellCast);
 		}
 		return new SpellCastResult(spellCast.getSpellCastState(), action);
 	}
 
 	protected SpellCastState getCastState(LivingEntity livingEntity) {
-		if (livingEntity instanceof Player && !MagicSpells.getSpellbook((Player) livingEntity).canCast(this))
-			return SpellCastState.CANT_CAST;
-		if (worldRestrictions != null && !worldRestrictions.contains(livingEntity.getWorld().getName()))
-			return SpellCastState.WRONG_WORLD;
-		if (MagicSpells.getNoMagicZoneManager() != null && MagicSpells.getNoMagicZoneManager().willFizzle(livingEntity, this))
-			return SpellCastState.NO_MAGIC_ZONE;
+		if (livingEntity instanceof Player && !MagicSpells.getSpellbook((Player) livingEntity).canCast(this)) return SpellCastState.CANT_CAST;
+		if (worldRestrictions != null && !worldRestrictions.contains(livingEntity.getWorld().getName())) return SpellCastState.WRONG_WORLD;
+		if (MagicSpells.getNoMagicZoneManager() != null && MagicSpells.getNoMagicZoneManager().willFizzle(livingEntity, this)) return SpellCastState.NO_MAGIC_ZONE;
 		if (onCooldown(livingEntity)) return SpellCastState.ON_COOLDOWN;
 		if (!hasReagents(livingEntity)) return SpellCastState.MISSING_REAGENTS;
 		return SpellCastState.NORMAL;
@@ -776,10 +889,9 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		float power = spellCast.getPower();
 		debug(3, "    Power: " + power);
 		debug(3, "    Cooldown: " + cooldown);
-		if (MagicSpells.plugin.debug && args != null && args.length > 0)
-			debug(3, "    Args: {" + Util.arrayJoin(args, ',') + '}');
+		if (MagicSpells.isDebug() && args != null && args.length > 0) debug(3, "    Args: {" + Util.arrayJoin(args, ',') + '}');
 		PostCastAction action = castSpell(livingEntity, state, power, args);
-		if (MagicSpells.plugin.enableProfiling) {
+		if (MagicSpells.hasProfilingEnabled()) {
 			Long total = MagicSpells.getProfilingTotalTime().get(profilingKey);
 			if (total == null) total = (long) 0;
 			total += System.nanoTime() - start;
@@ -810,15 +922,12 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 				message = formatMessage(message, "%s", spellCast.getSpell().getName());
 				MagicSpells.sendMessage(message, livingEntity, spellCast.getSpellArgs());
 				playSpellEffects(EffectPosition.COOLDOWN, livingEntity);
-				if (soundOnCooldown != null && livingEntity instanceof Player)
-					((Player) livingEntity).playSound(livingEntity.getLocation(), soundOnCooldown, 1F, 1F);
+				if (soundOnCooldown != null && livingEntity instanceof Player) ((Player) livingEntity).playSound(livingEntity.getLocation(), soundOnCooldown, 1F, 1F);
 			} else if (state == SpellCastState.MISSING_REAGENTS) {
 				MagicSpells.sendMessage(strMissingReagents, livingEntity, spellCast.getSpellArgs());
 				playSpellEffects(EffectPosition.MISSING_REAGENTS, livingEntity);
-				if (MagicSpells.plugin.showStrCostOnMissingReagents && strCost != null && !strCost.isEmpty())
-					MagicSpells.sendMessage("    (" + strCost + ')', livingEntity, spellCast.getSpellArgs());
-				if (soundMissingReagents != null && livingEntity instanceof Player)
-					((Player) livingEntity).playSound(livingEntity.getLocation(), soundMissingReagents, 1F, 1F);
+				if (MagicSpells.showStrCostOnMissingReagents() && strCost != null && !strCost.isEmpty()) MagicSpells.sendMessage("    (" + strCost + ')', livingEntity, spellCast.getSpellArgs());
+				if (soundMissingReagents != null && livingEntity instanceof Player) ((Player) livingEntity).playSound(livingEntity.getLocation(), soundMissingReagents, 1F, 1F);
 			} else if (state == SpellCastState.CANT_CAST) {
 				MagicSpells.sendMessage(strCantCast, livingEntity, spellCast.getSpellArgs());
 			} else if (state == SpellCastState.NO_MAGIC_ZONE) {
@@ -843,14 +952,12 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	}
 
 	// TODO can this safely be made varargs?
-
 	/**
 	 * This method is called when a player casts a spell, either by command, with a wand item, or otherwise.
-	 *
 	 * @param livingEntity the living entity casting the spell
-	 * @param state        the state of the spell cast (normal, on cooldown, missing reagents, etc)
-	 * @param power        the power multiplier the spell should be cast with (1.0 is normal)
-	 * @param args         the spell arguments, if cast by command
+	 * @param state the state of the spell cast (normal, on cooldown, missing reagents, etc)
+	 * @param power the power multiplier the spell should be cast with (1.0 is normal)
+	 * @param args the spell arguments, if cast by command
 	 * @return the action to take after the spell is processed
 	 */
 	public abstract PostCastAction castSpell(LivingEntity livingEntity, SpellCastState state, float power, String[] args);
@@ -877,12 +984,10 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	}
 
 	// TODO can this safely be made varargs?
-
 	/**
 	 * This method is called when the spell is cast from the console.
-	 *
 	 * @param sender the console sender.
-	 * @param args   the command arguments
+	 * @param args the command arguments
 	 * @return true if the spell was handled, false otherwise
 	 */
 	public boolean castFromConsole(CommandSender sender, String[] args) {
@@ -899,6 +1004,10 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	public boolean canCastWithRightClick() {
 		return castWithRightClick;
+	}
+
+	public boolean hasPreciseCooldowns() {
+		return usePreciseCooldowns;
 	}
 
 	public boolean isAlwaysGranted() {
@@ -935,7 +1044,6 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	/**
 	 * Check whether this spell is currently on cooldown for the specified player
-	 *
 	 * @param livingEntity The living entity to check
 	 * @return whether the spell is on cooldown
 	 */
@@ -954,7 +1062,6 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	/**
 	 * Get how many seconds remain on the cooldown of this spell for the specified player
-	 *
 	 * @param livingEntity The living entity to check
 	 * @return The number of seconds remaining in the cooldown
 	 */
@@ -966,7 +1073,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		Long next = nextCast.get(livingEntity.getUniqueId());
 		if (next != null) {
 			float c = (next - System.currentTimeMillis()) / ((float) TimeUtil.MILLISECONDS_PER_SECOND);
-			cd = c > 0 ? c : 0;
+			cd =  c > 0 ? c : 0;
 		}
 
 		if (serverCooldown > 0 && nextCastServer > System.currentTimeMillis()) {
@@ -979,7 +1086,6 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	/**
 	 * Begins the cooldown for the spell for the specified player
-	 *
 	 * @param livingEntity The living entity to set the cooldown for
 	 */
 	public void setCooldown(LivingEntity livingEntity, float cooldown) {
@@ -988,13 +1094,19 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	/**
 	 * Begins the cooldown for the spell for the specified player
-	 *
 	 * @param livingEntity The living entity to set the cooldown for
 	 */
 	public void setCooldown(final LivingEntity livingEntity, float cooldown, boolean activateSharedCooldowns) {
-		if (cooldown > 0) {
+		if (cooldown > 0 || minCooldown > 0) {
+			float cd = cooldown;
+			// calculate random cooldown
+			if (minCooldown != -1F) {
+				if (usePreciseCooldowns) cd = minCooldown + (maxCooldown - minCooldown) * random.nextFloat();
+				else cd = minCooldown + random.nextInt((int) maxCooldown - (int) minCooldown + 1);
+			}
+
 			if (charges <= 0) {
-				nextCast.put(livingEntity.getUniqueId(), System.currentTimeMillis() + (long) (cooldown * TimeUtil.MILLISECONDS_PER_SECOND));
+				nextCast.put(livingEntity.getUniqueId(), System.currentTimeMillis() + (long) (cd * TimeUtil.MILLISECONDS_PER_SECOND));
 			} else {
 				final UUID uuid = livingEntity.getUniqueId();
 				chargesConsumed.increment(uuid);
@@ -1003,16 +1115,15 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 					playSpellEffects(EffectPosition.CHARGE_USE, livingEntity);
 					if (rechargeSound == null) return;
 					if (rechargeSound.isEmpty()) return;
-					if (livingEntity instanceof Player)
-						((Player) livingEntity).playSound(livingEntity.getLocation(), rechargeSound, 1.0F, 1.0F);
-				}, Math.round(TimeUtil.TICKS_PER_SECOND * cooldown));
+					if (livingEntity instanceof Player) ((Player) livingEntity).playSound(livingEntity.getLocation(), rechargeSound, 1.0F, 1.0F);
+				}, Math.round(TimeUtil.TICKS_PER_SECOND * cd));
 			}
+
 		} else {
 			if (charges <= 0) nextCast.remove(livingEntity.getUniqueId());
 			else chargesConsumed.remove(livingEntity.getUniqueId());
 		}
-		if (serverCooldown > 0)
-			nextCastServer = System.currentTimeMillis() + (long) (serverCooldown * TimeUtil.MILLISECONDS_PER_SECOND);
+		if (serverCooldown > 0) nextCastServer = System.currentTimeMillis() + (long) (serverCooldown * TimeUtil.MILLISECONDS_PER_SECOND);
 		if (activateSharedCooldowns && sharedCooldowns != null) {
 			for (Map.Entry<Spell, Float> scd : sharedCooldowns.entrySet()) {
 				scd.getKey().setCooldown(livingEntity, scd.getValue(), false);
@@ -1022,7 +1133,6 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	/**
 	 * Checks if a player has the reagents required to cast this spell
-	 *
 	 * @param livingEntity the living entity to check
 	 * @return true if the player has the reagents, false otherwise
 	 */
@@ -1031,12 +1141,10 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	}
 
 	// FIXME this doesn't seem strictly tied to Spell logic, could probably be moved
-
 	/**
 	 * Checks if a player has the reagents required to cast this spell
-	 *
 	 * @param livingEntity the living entity to check
-	 * @param reagents     the reagents to check for
+	 * @param reagents the reagents to check for
 	 * @return true if the player has the reagents, false otherwise
 	 */
 	protected boolean hasReagents(LivingEntity livingEntity, SpellReagents reagents) {
@@ -1046,11 +1154,10 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	/**
 	 * Checks if a player has the specified reagents, including health and mana
-	 *
 	 * @param livingEntity the living entity to check
-	 * @param reagents     the inventory item reagents to look for
-	 * @param healthCost   the health cost, in half-hearts
-	 * @param manaCost     the mana cost
+	 * @param reagents the inventory item reagents to look for
+	 * @param healthCost the health cost, in half-hearts
+	 * @param manaCost the mana cost
 	 * @return true if the player has all the reagents, false otherwise
 	 */
 	private boolean hasReagents(LivingEntity livingEntity, SpellReagents.ReagentItem[] reagents, int healthCost, int manaCost, int hungerCost, int experienceCost, int levelsCost, int durabilityCost, float moneyCost, Map<String, Double> variables) {
@@ -1060,8 +1167,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		// player reagents
 		if (livingEntity instanceof Player) {
 			// Mana costs
-			if (manaCost > 0 && (MagicSpells.getManaHandler() == null || !MagicSpells.getManaHandler().hasMana((Player) livingEntity, manaCost)))
-				return false;
+			if (manaCost > 0 && (MagicSpells.getManaHandler() == null || !MagicSpells.getManaHandler().hasMana((Player) livingEntity, manaCost))) return false;
 
 			// Hunger costs
 			if (hungerCost > 0 && ((Player) livingEntity).getFoodLevel() < hungerCost) return false;
@@ -1128,7 +1234,6 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	/**
 	 * Removes the reagent cost of this spell from the player's inventory.
 	 * This does not check if the player has the reagents, use hasReagents() for that.
-	 *
 	 * @param livingEntity the living entity to remove reagents from
 	 */
 	protected void removeReagents(LivingEntity livingEntity) {
@@ -1136,13 +1241,11 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	}
 
 	// TODO can this safely be made varargs?
-
 	/**
 	 * Removes the specified reagents from the player's inventory.
 	 * This does not check if the player has the reagents, use hasReagents() for that.
-	 *
 	 * @param livingEntity the living entity to remove the reagents from
-	 * @param reagents     the inventory item reagents to remove
+	 * @param reagents the inventory item reagents to remove
 	 */
 	protected void removeReagents(LivingEntity livingEntity, SpellReagents.ReagentItem[] reagents) {
 		removeReagents(livingEntity, reagents, 0, 0, 0, 0, 0, 0, 0, null);
@@ -1155,11 +1258,10 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	/**
 	 * Removes the specified reagents, including health and mana, from the player's inventory.
 	 * This does not check if the player has the reagents, use hasReagents() for that.
-	 *
 	 * @param livingEntity the living entity to remove the reagents from
-	 * @param reagents     the inventory item reagents to remove
-	 * @param healthCost   the health to remove
-	 * @param manaCost     the mana to remove
+	 * @param reagents the inventory item reagents to remove
+	 * @param healthCost the health to remove
+	 * @param manaCost the mana to remove
 	 */
 	private void removeReagents(LivingEntity livingEntity, SpellReagents.ReagentItem[] reagents, int healthCost, int manaCost, int hungerCost, int experienceCost, int levelsCost, int durabilityCost, float moneyCost, Map<String, Double> variables) {
 		if (Perm.NOREAGENTS.has(livingEntity)) return;
@@ -1167,16 +1269,13 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		if (reagents != null) {
 			for (SpellReagents.ReagentItem item : reagents) {
 				if (item == null) continue;
-				if (livingEntity instanceof Player)
-					Util.removeFromInventory(((Player) livingEntity).getInventory(), item);
-				else if (livingEntity.getEquipment() != null)
-					Util.removeFromInventory(livingEntity.getEquipment(), item);
+				if (livingEntity instanceof Player) Util.removeFromInventory(((Player) livingEntity).getInventory(), item);
+				else if (livingEntity.getEquipment() != null) Util.removeFromInventory(livingEntity.getEquipment(), item);
 			}
 		}
 
 		if (livingEntity instanceof Player) {
-			if (manaCost != 0)
-				MagicSpells.getManaHandler().addMana((Player) livingEntity, -manaCost, ManaChangeReason.SPELL_COST);
+			if (manaCost != 0) MagicSpells.getManaHandler().addMana((Player) livingEntity, -manaCost, ManaChangeReason.SPELL_COST);
 
 			if (hungerCost != 0) {
 				int f = ((Player) livingEntity).getFoodLevel() - hungerCost;
@@ -1238,9 +1337,21 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		return spellPowerAffectsRange ? Math.round(range * power) : range;
 	}
 
+	public int getCharges() {
+		return charges;
+	}
+
+	/**
+	 * Get how many charges the specified living entity has consumed.
+	 * @param livingEntity The living entity to check
+	 * @return The number of charges consumed
+	 */
+	public int getCharges(LivingEntity livingEntity) {
+		return chargesConsumed.get(livingEntity.getUniqueId());
+	}
+
 	/**
 	 * Gets the player a player is currently looking at, ignoring other living entities
-	 *
 	 * @param livingEntity the living entity to get the target for
 	 * @return the targeted Player, or null if none was found
 	 */
@@ -1435,6 +1546,18 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		return spellEffects;
 	}
 
+	protected Set<Entity> playSpellEntityEffects(EffectPosition pos, Location location) {
+		if (effects == null) return null;
+		List<SpellEffect> effectsList = effects.get(pos);
+		if (effectsList == null) return null;
+		Set<Entity> entities = new HashSet<>();
+		for (SpellEffect effect : effectsList) {
+			if (!(effect instanceof EntityEffect)) continue;
+			entities.add(effect.playEntityEffect(location));
+		}
+		return entities;
+	}
+
 	protected Set<ArmorStand> playSpellArmorStandEffects(EffectPosition pos, Location location) {
 		if (effects == null) return null;
 		List<SpellEffect> effectsList = effects.get(pos);
@@ -1458,7 +1581,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		}
 		List<SpellEffect> rTrailEffects = effects.get(EffectPosition.REVERSE_LINE);
 		if (rTrailEffects != null) {
-			for (SpellEffect effect : rTrailEffects) {
+			for (SpellEffect effect: rTrailEffects) {
 				effect.playEffect(loc2, loc1);
 			}
 		}
@@ -1468,7 +1591,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		if (effects == null) return;
 		List<SpellEffect> spellEffects = effects.get(pos);
 		if (spellEffects == null) return;
-		for (SpellEffect e : spellEffects) {
+		for (SpellEffect e: spellEffects) {
 			e.playTrackingLinePatterns(origin, target, originEntity, targetEntity);
 		}
 	}
@@ -1477,7 +1600,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		if (callbacks == null) return;
 		String key = p.getUniqueId().toString();
 		Map<EffectPosition, List<Runnable>> entry = new EnumMap<>(EffectPosition.class);
-		for (EffectPosition pos : EffectPosition.values()) {
+		for (EffectPosition pos: EffectPosition.values()) {
 			List<Runnable> runnables = new ArrayList<>();
 			entry.put(pos, runnables);
 		}
@@ -1486,7 +1609,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	public void unloadPlayerEffectTracker(Player p) {
 		String uuid = p.getUniqueId().toString();
-		for (EffectPosition pos : EffectPosition.values()) {
+		for (EffectPosition pos: EffectPosition.values()) {
 			cancelEffects(pos, uuid);
 		}
 		callbacks.remove(uuid);
@@ -1499,7 +1622,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		while (!cancelers.isEmpty()) {
 			Runnable c = cancelers.iterator().next();
 			if (c instanceof Effect) {
-				Effect eff = (Effect) c;
+				Effect eff = (Effect)c;
 				eff.cancel();
 			} else {
 				c.run();
@@ -1509,7 +1632,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	}
 
 	public void cancelEffectForAllPlayers(EffectPosition pos) {
-		for (String key : callbacks.keySet()) {
+		for (String key: callbacks.keySet()) {
 			cancelEffects(pos, key);
 		}
 	}
@@ -1523,13 +1646,17 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		List<SpellEffect> effectsList = effects.get(EffectPosition.BUFF);
 		if (effectsList != null) {
 			for (SpellEffect effect : effectsList) {
-				effectTrackerSet.add(effect.playEffectWhileActiveOnEntity(entity, checker));
+				EffectTracker tracker = effect.playEffectWhileActiveOnEntity(entity, checker);
+				if (this instanceof BuffSpell) tracker.setBuffSpell((BuffSpell) this);
+				effectTrackerSet.add(tracker);
 			}
 		}
 		effectsList = effects.get(EffectPosition.ORBIT);
 		if (effectsList != null) {
 			for (SpellEffect effect : effectsList) {
-				effectTrackerSet.add(effect.playEffectWhileActiveOrbit(entity, checker));
+				EffectTracker tracker = effect.playEffectWhileActiveOrbit(entity, checker);
+				if (this instanceof BuffSpell) tracker.setBuffSpell((BuffSpell) this);
+				effectTrackerSet.add(tracker);
 			}
 		}
 	}
@@ -1540,10 +1667,6 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	protected void registerEvents(Listener listener) {
 		MagicSpells.registerEvents(listener);
-	}
-
-	protected void unregisterEvents() {
-		unregisterEvents(this);
 	}
 
 	protected void unregisterEvents(Listener listener) {
@@ -1589,8 +1712,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	/**
 	 * Formats a string by performing the specified replacements.
-	 *
-	 * @param message      the string to format
+	 * @param message the string to format
 	 * @param replacements the replacements to make, in pairs.
 	 * @return the formatted string
 	 */
@@ -1600,9 +1722,8 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	/**
 	 * Sends a message to a player, first making the specified replacements. This method also does color replacement and has multi-line functionality.
-	 *
 	 * @param livingEntity the living entity to send the message to
-	 * @param message      the message to send
+	 * @param message the message to send
 	 * @param replacements the replacements to be made, in pairs
 	 */
 	protected void sendMessage(LivingEntity livingEntity, String message, String... replacements) {
@@ -1615,9 +1736,8 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	/**
 	 * Sends a message to a player. This method also does color replacement and has multi-line functionality.
-	 *
 	 * @param livingEntity the living entity to send the message to
-	 * @param message      the message to send
+	 * @param message the message to send
 	 */
 	protected void sendMessage(String message, LivingEntity livingEntity, String[] args) {
 		MagicSpells.sendMessage(message, livingEntity, args);
@@ -1647,17 +1767,15 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		if (message.isEmpty()) return;
 		if (Perm.SILENT.has(livingEntity)) return;
 
-		// FIXME extract the regexp to a pattern
-		String[] msgs = message.replaceAll("&([0-9a-f])", "\u00A7$1").split("\n");
 		int rangeDoubled = range << 1;
 		List<Entity> entities = livingEntity.getNearbyEntities(rangeDoubled, rangeDoubled, rangeDoubled);
 		for (Entity entity : entities) {
 			if (!(entity instanceof Player)) continue;
 			if (entity == livingEntity) continue;
 			if (entity == ignore) continue;
-			for (String msg : msgs) {
+			for (String msg : message.split("\n")) {
 				if (msg.isEmpty()) continue;
-				entity.sendMessage(MagicSpells.getVolatileCodeHandler().colorize(MagicSpells.getTextColor() + msg));
+				entity.sendMessage(Util.colorize(MagicSpells.getTextColor() + msg));
 			}
 		}
 	}
@@ -1721,7 +1839,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 	}
 
 	public String getConsoleName() {
-		return MagicSpells.plugin.strConsoleName;
+		return MagicSpells.getConsoleName();
 	}
 
 	public String getStrWrongCastItem() {

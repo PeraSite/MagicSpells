@@ -9,16 +9,16 @@ import com.nisovin.magicspells.util.Util;
 import com.nisovin.magicspells.MagicSpells;
 import com.nisovin.magicspells.util.TargetInfo;
 import com.nisovin.magicspells.util.MagicConfig;
+import com.nisovin.magicspells.spells.DamageSpell;
 import com.nisovin.magicspells.spells.TargetedSpell;
 import com.nisovin.magicspells.util.compat.EventUtil;
 import com.nisovin.magicspells.handlers.DebugHandler;
-import com.nisovin.magicspells.spells.SpellDamageSpell;
 import com.nisovin.magicspells.util.compat.CompatBasics;
 import com.nisovin.magicspells.spells.TargetedEntitySpell;
 import com.nisovin.magicspells.events.SpellApplyDamageEvent;
 import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
 
-public class PainSpell extends TargetedSpell implements TargetedEntitySpell, SpellDamageSpell {
+public class PainSpell extends TargetedSpell implements TargetedEntitySpell, DamageSpell {
 
 	private String spellDamageType;
 	private DamageCause damageType;
@@ -34,15 +34,11 @@ public class PainSpell extends TargetedSpell implements TargetedEntitySpell, Spe
 		super(config, spellName);
 
 		spellDamageType = getConfigString("spell-damage-type", "");
-		String type = getConfigString("damage-type", "ENTITY_ATTACK");
-		for (DamageCause cause : DamageCause.values()) {
-			if (cause.name().equalsIgnoreCase(type)) {
-				damageType = cause;
-				break;
-			}
-		}
-		if (damageType == null) {
-			DebugHandler.debugBadEnumValue(DamageCause.class, type);
+		String damageTypeName = getConfigString("damage-type", "ENTITY_ATTACK");
+		try {
+			damageType = DamageCause.valueOf(damageTypeName.toUpperCase());
+		} catch (IllegalArgumentException ignored) {
+			DebugHandler.debugBadEnumValue(DamageCause.class, damageTypeName);
 			damageType = DamageCause.ENTITY_ATTACK;
 		}
 
@@ -50,7 +46,7 @@ public class PainSpell extends TargetedSpell implements TargetedEntitySpell, Spe
 
 		ignoreArmor = getConfigBoolean("ignore-armor", false);
 		checkPlugins = getConfigBoolean("check-plugins", true);
-		avoidDamageModification = getConfigBoolean("avoid-damage-modification", false);
+		avoidDamageModification = getConfigBoolean("avoid-damage-modification", true);
 		tryAvoidingAntiCheatPlugins = getConfigBoolean("try-avoiding-anticheat-plugins", false);
 	}
 
@@ -111,7 +107,7 @@ public class PainSpell extends TargetedSpell implements TargetedEntitySpell, Spe
 			health = health - localDamage;
 			if (health < 0) health = 0;
 			if (health > Util.getMaxHealth(target)) health = Util.getMaxHealth(target);
-			if (health == 0 && caster instanceof Player) MagicSpells.getVolatileCodeHandler().setKiller(target, (Player) caster);
+			if (health == 0 && caster instanceof Player) target.setKiller((Player) caster);
 
 			target.setHealth(health);
 			playSpellEffects(caster, target);

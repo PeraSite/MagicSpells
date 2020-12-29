@@ -3,6 +3,7 @@ package com.nisovin.magicspells.spells.instant;
 import java.util.List;
 import java.util.Random;
 import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
@@ -30,6 +31,7 @@ import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.spells.InstantSpell;
 import com.nisovin.magicspells.util.compat.EventUtil;
 import com.nisovin.magicspells.events.SpellTargetEvent;
+import com.nisovin.magicspells.zones.NoMagicZoneManager;
 import com.nisovin.magicspells.castmodifiers.ModifierSet;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
 import com.nisovin.magicspells.spells.TargetedLocationSpell;
@@ -39,6 +41,8 @@ import com.nisovin.magicspells.util.projectile.ProjectileManagers;
 public class ProjectileSpell extends InstantSpell implements TargetedLocationSpell {
 
 	private List<ProjectileMonitor> monitors;
+
+	private NoMagicZoneManager zoneManager;
 
 	private Random random;
 
@@ -85,7 +89,7 @@ public class ProjectileSpell extends InstantSpell implements TargetedLocationSpe
 
 		monitors = new ArrayList<>();
 
-		random = new Random();
+		random = ThreadLocalRandom.current();
 
 		projectileManager = ProjectileManagers.getManager(getConfigString("projectile-type",  "arrow"));
 
@@ -120,13 +124,18 @@ public class ProjectileSpell extends InstantSpell implements TargetedLocationSpe
 	}
 
 	@Override
-	public void initialize() {
-		super.initialize();
+	public void initializeModifiers() {
+		super.initializeModifiers();
 
 		if (projectileModifiersStrings != null && !projectileModifiersStrings.isEmpty()) {
 			projectileModifiers = new ModifierSet(projectileModifiersStrings);
 			projectileModifiersStrings = null;
 		}
+	}
+
+	@Override
+	public void initialize() {
+		super.initialize();
 
 		hitSpell = new Subspell(hitSpellName);
 		if (!hitSpell.process()) {
@@ -157,6 +166,8 @@ public class ProjectileSpell extends InstantSpell implements TargetedLocationSpe
 			if (!modifierSpellName.isEmpty()) MagicSpells.error("ProjectileSpell '" + internalName + "' has an invalid spell-on-modifier-fail defined!");
 			modifierSpell = null;
 		}
+
+		zoneManager = MagicSpells.getNoMagicZoneManager();
 	}
 
 	@Override
@@ -309,6 +320,8 @@ public class ProjectileSpell extends InstantSpell implements TargetedLocationSpe
 			startLocation.add(startLocation.getDirection().multiply(relativeOffset.getX()));
 			startLocation.setY(startLocation.getY() + relativeOffset.getY());
 
+			currentLocation = startLocation.clone();
+
 			playSpellEffects(EffectPosition.CASTER, startLocation);
 
 			projectile = startLocation.getWorld().spawn(startLocation, projectileManager.getProjectileClass());
@@ -344,6 +357,11 @@ public class ProjectileSpell extends InstantSpell implements TargetedLocationSpe
 			}
 
 			if (projectile == null || projectile.isDead()) {
+				stop();
+				return;
+			}
+
+			if (zoneManager.willFizzle(currentLocation, ProjectileSpell.this)) {
 				stop();
 				return;
 			}

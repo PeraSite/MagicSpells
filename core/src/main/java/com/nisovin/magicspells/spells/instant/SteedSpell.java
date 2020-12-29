@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.Random;
 import java.util.HashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -26,7 +27,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.spigotmc.event.entity.EntityDismountEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
-import com.nisovin.magicspells.util.Util;
+import com.nisovin.magicspells.util.MobUtil;
 import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.spells.InstantSpell;
 import com.nisovin.magicspells.handlers.DebugHandler;
@@ -57,7 +58,7 @@ public class SteedSpell extends InstantSpell {
 		super(config, spellName);
 
 		mounted = new HashMap<>();
-		random = new Random();
+		random = ThreadLocalRandom.current();
 
 		gravity = getConfigBoolean("gravity", true);
 		hasChest = getConfigBoolean("has-chest", false);
@@ -66,7 +67,7 @@ public class SteedSpell extends InstantSpell {
 
 		strAlreadyMounted = getConfigString("str-already-mounted", "You are already mounted!");
 
-		type = Util.getEntityType(getConfigString("type", "horse"));
+		type = MobUtil.getEntityType(getConfigString("type", "horse"));
 
 		if (type == EntityType.HORSE) {
 			String c = getConfigString("color", "");

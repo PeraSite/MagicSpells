@@ -34,6 +34,7 @@ import com.google.common.collect.HashMultimap;
 public class MagicItems {
 
 	private static final Map<String, MagicItem> magicItems = new HashMap<>();
+	private static final Map<ItemStack, MagicItemData> itemStackCache = new HashMap<>();
 
 	public static Map<String, MagicItem> getMagicItems() {
 		return magicItems;
@@ -67,9 +68,13 @@ public class MagicItems {
 	}
 
 	public static MagicItemData getMagicItemDataFromItemStack(ItemStack itemStack) {
-		MagicItemData data = new MagicItemData();
 		if (itemStack == null || BlockUtils.isAir(itemStack.getType())) return null;
 
+		MagicItemData cached = itemStackCache.get(itemStack);
+		// We can do this because itemStackCache doesn't have any null values
+		if (cached != null) return cached;
+
+		MagicItemData data = new MagicItemData();
 		ItemMeta meta = itemStack.getItemMeta();
 
 		// type
@@ -133,6 +138,7 @@ public class MagicItems {
 		// patterns
 		data = BannerHandler.process(itemStack, data);
 
+		itemStackCache.put(itemStack, data);
 		return data;
 	}
 
@@ -356,9 +362,7 @@ public class MagicItems {
 					if (args.length >= 4) {
 						try {
 							slot = EquipmentSlot.valueOf(args[3].toUpperCase());
-						} catch (Exception e) {
-
-						}
+						} catch (Exception ignored) {}
 					}
 
 					AttributeModifier modifier = new AttributeModifier(UUID.randomUUID(), args[0], value, operation, slot);

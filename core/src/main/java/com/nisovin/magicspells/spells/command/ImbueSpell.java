@@ -1,10 +1,6 @@
 package com.nisovin.magicspells.spells.command;
 
-import java.util.Set;
-import java.util.List;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.regex.Pattern;
 
 import org.bukkit.Material;
@@ -227,7 +223,7 @@ public class ImbueSpell extends CommandSpell {
 	private void setItemNameAndLore(ItemStack item, Spell spell, int uses) {
 		ItemMeta meta = item.getItemMeta();
 		if (!strItemName.isEmpty()) meta.setDisplayName(strItemName.replace("%s", spell.getName()).replace("%u", uses+""));
-		if (!strItemLore.isEmpty()) meta.setLore(Arrays.asList(strItemLore.replace("%s", spell.getName()).replace("%u", uses+"")));
+		if (!strItemLore.isEmpty()) meta.setLore(Collections.singletonList(strItemLore.replace("%s", spell.getName()).replace("%u", uses + "")));
 		item.setItemMeta(meta);
 	}
 	

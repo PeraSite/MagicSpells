@@ -3,6 +3,7 @@ package com.nisovin.magicspells.spells;
 import java.util.List;
 import java.util.Random;
 import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.entity.Player;
 import org.bukkit.entity.LivingEntity;
@@ -14,7 +15,7 @@ import com.nisovin.magicspells.castmodifiers.ModifierSet;
 
 public class RandomSpell extends InstantSpell {
 
-	private static Random random = new Random();
+	private static Random random = ThreadLocalRandom.current();
 
 	private List<String> rawOptions;
 

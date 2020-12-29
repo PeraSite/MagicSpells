@@ -55,6 +55,7 @@ public class TotemSpell extends TargetedSpell implements TargetedLocationSpell {
 	private boolean onlyCountOnSuccess;
 	private boolean centerStand;
 	private boolean allowCasterTarget;
+	private boolean silenced;
 
 	private String strAtCap;
 	private String totemName;
@@ -135,6 +136,7 @@ public class TotemSpell extends TargetedSpell implements TargetedLocationSpell {
 		onlyCountOnSuccess = getConfigBoolean("only-count-on-success", false);
 		centerStand = getConfigBoolean("center-stand", true);
 		allowCasterTarget = getConfigBoolean("allow-caster-target", false);
+		silenced = getConfigBoolean("silenced", false);
 		strAtCap = getConfigString("str-at-cap", "You have too many effects at once.");
 		totemName = getConfigString("totem-name", "");
 
@@ -317,6 +319,7 @@ public class TotemSpell extends TargetedSpell implements TargetedLocationSpell {
 			if (boots != null) totemEquipment.setBoots(boots);
 			((ArmorStand) armorStand).setVisible(visibility);
 			((ArmorStand) armorStand).setMarker(marker);
+			armorStand.setSilent(silenced);
 			armorStand.setInvulnerable(true);
 			totemLocation = armorStand.getLocation();
 		}

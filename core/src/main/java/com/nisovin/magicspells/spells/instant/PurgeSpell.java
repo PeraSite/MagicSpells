@@ -10,8 +10,8 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 
-import com.nisovin.magicspells.util.Util;
 import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.util.MobUtil;
 import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.spells.InstantSpell;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
@@ -34,7 +34,7 @@ public class PurgeSpell extends InstantSpell implements TargetedLocationSpell {
 		if (list != null && !list.isEmpty()) {
 			entities = new ArrayList<>();
 			for (String s : list) {
-				EntityType t = Util.getEntityType(s);
+				EntityType t = MobUtil.getEntityType(s);
 				if (t != null) entities.add(t);
 				else MagicSpells.error("PurgeSpell '" + internalName + "' has an invalid entity defined: " + s);
 			}

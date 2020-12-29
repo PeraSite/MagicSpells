@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.HashSet;
 import java.util.HashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -36,7 +37,7 @@ public class LifewalkSpell extends BuffSpell {
 
 		tickInterval = getConfigInt("tick-interval", 15);
 
-		random = new Random();
+		random = ThreadLocalRandom.current();
 		blocks = new HashMap<>();
 		lifewalkers = new HashSet<>();
 

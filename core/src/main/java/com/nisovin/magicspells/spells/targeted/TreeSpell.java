@@ -113,7 +113,7 @@ public class TreeSpell extends TargetedSpell implements TargetedLocationSpell {
 				BlockState state = blockStates.remove(0);
 				state.update(true);
 				if (blockStates.isEmpty()) {
-					stop();
+					stop(true);
 					break;
 				}
 			}

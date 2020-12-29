@@ -10,8 +10,8 @@ public class IntMap<T> {
 	private Map<T, Integer> map = new HashMap<>();
 	
 	public int put(T key, int value) {
-		Integer prev = map.put(key, Integer.valueOf(value));
-		if (prev != null) return prev.intValue();
+		Integer prev = map.put(key, value);
+		if (prev != null) return prev;
 		return 0;
 	}
 	
@@ -21,13 +21,13 @@ public class IntMap<T> {
 	
 	public int get(T key) {
 		Integer value = map.get(key);
-		if (value != null) return value.intValue();
+		if (value != null) return value;
 		return 0;
 	}
 	
 	public int remove(T key) {
 		Integer value = map.remove(key);
-		if (value != null) return value.intValue();
+		if (value != null) return value;
 		return 0;
 	}
 	
@@ -44,7 +44,7 @@ public class IntMap<T> {
 	}
 	
 	public boolean containsValue(int value) {
-		return map.containsValue(Integer.valueOf(value));
+		return map.containsValue(value);
 	}
 	
 	public int increment(T key) {
@@ -105,8 +105,7 @@ public class IntMap<T> {
 	}
 	
 	public void useTreeMap() {
-		Map<T, Integer> newMap = new TreeMap<>();
-		newMap.putAll(map);
+		Map<T, Integer> newMap = new TreeMap<>(map);
 		map.clear();
 		map = newMap;
 	}

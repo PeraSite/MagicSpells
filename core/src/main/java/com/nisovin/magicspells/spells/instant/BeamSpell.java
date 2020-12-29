@@ -16,6 +16,7 @@ import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.spells.InstantSpell;
 import com.nisovin.magicspells.util.compat.EventUtil;
 import com.nisovin.magicspells.events.SpellTargetEvent;
+import com.nisovin.magicspells.zones.NoMagicZoneManager;
 import com.nisovin.magicspells.spells.TargetedEntitySpell;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
 import com.nisovin.magicspells.spells.TargetedLocationSpell;
@@ -36,6 +37,10 @@ public class BeamSpell extends InstantSpell implements TargetedLocationSpell, Ta
 	private float beamVertOffset;
 	private float beamHorizOffset;
 
+	private float beamSpread;
+	private float beamVerticalSpread;
+	private float beamHorizontalSpread;
+
 	private boolean changePitch;
 	private boolean stopOnHitEntity;
 	private boolean stopOnHitGround;
@@ -49,6 +54,8 @@ public class BeamSpell extends InstantSpell implements TargetedLocationSpell, Ta
 	private String endSpellName;
 	private String travelSpellName;
 	private String groundSpellName;
+
+	private NoMagicZoneManager zoneManager;
 
 	public BeamSpell(MagicConfig config, String spellName) {
 		super(config, spellName);
@@ -66,6 +73,10 @@ public class BeamSpell extends InstantSpell implements TargetedLocationSpell, Ta
 		rotation = getConfigFloat("rotation", 0F);
 		beamVertOffset = getConfigFloat("beam-vert-offset", 0F);
 		beamHorizOffset = getConfigFloat("beam-horiz-offset", 0F);
+
+		beamSpread = getConfigFloat("beam-spread", 0F);
+		beamVerticalSpread = getConfigFloat("beam-vertical-spread", beamSpread);
+		beamHorizontalSpread = getConfigFloat("beam-horizontal-spread", beamSpread);
 
 		changePitch = getConfigBoolean("change-pitch", true);
 		stopOnHitEntity = getConfigBoolean("stop-on-hit-entity", false);
@@ -108,6 +119,8 @@ public class BeamSpell extends InstantSpell implements TargetedLocationSpell, Ta
 			if (!groundSpellName.isEmpty()) MagicSpells.error("BeamSpell '" + internalName + "' has an invalid spell-on-hit-ground defined!");
 			groundSpell = null;
 		}
+
+		zoneManager = MagicSpells.getNoMagicZoneManager();
 	}
 
 	@Override
@@ -217,6 +230,13 @@ public class BeamSpell extends InstantSpell implements TargetedLocationSpell, Ta
 			if (target == null) dir = startLoc.getDirection().multiply(interval);
 			else dir = targetLoc.toVector().subtract(startLoc.clone().toVector()).normalize().multiply(interval);
 
+			if (beamVerticalSpread > 0 || beamHorizontalSpread > 0) {
+				float rx = -1 + random.nextFloat() * 2;
+				float ry = -1 + random.nextFloat() * 2;
+				float rz = -1 + random.nextFloat() * 2;
+				dir.add(new Vector(rx * beamHorizontalSpread, ry * beamVerticalSpread, rz * beamHorizontalSpread));
+			}
+
 			BoundingBox box = new BoundingBox(currentLoc, hitRadius, verticalHitRadius);
 
 			float d = 0;
@@ -229,6 +249,10 @@ public class BeamSpell extends InstantSpell implements TargetedLocationSpell, Ta
 				if (rotation != 0) Util.rotateVector(dir, rotation);
 				if (gravity != 0) dir.add(new Vector(0, gravity,0));
 				if (rotation != 0 || gravity != 0) currentLoc.setDirection(dir);
+
+				if (zoneManager.willFizzle(currentLoc, BeamSpell.this)) {
+					break;
+				}
 
 				//check block collision
 				if (!isTransparent(currentLoc.getBlock())) {
@@ -270,7 +294,7 @@ public class BeamSpell extends InstantSpell implements TargetedLocationSpell, Ta
 			}
 
 			//end of the beam
-			if (d >= maxDistance) {
+			if (!zoneManager.willFizzle(currentLoc, BeamSpell.this) && d >= maxDistance) {
 				playSpellEffects(EffectPosition.DELAYED, currentLoc);
 				if (endSpell != null) endSpell.castAtLocation(caster, currentLoc, power);
 			}

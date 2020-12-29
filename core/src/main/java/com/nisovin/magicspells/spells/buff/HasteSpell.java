@@ -12,6 +12,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.EventPriority;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
 
 import com.nisovin.magicspells.MagicSpells;
@@ -68,7 +69,7 @@ public class HasteSpell extends BuffSpell {
 		if (data == null) return;
 		MagicSpells.cancelTask(data.task);
 		hasted.remove(entity.getUniqueId());
-		entity.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 1, 0), true);
+		entity.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 1, 0));
 		entity.removePotionEffect(PotionEffectType.SPEED);
 	}
 
@@ -103,7 +104,7 @@ public class HasteSpell extends BuffSpell {
 			event.setCancelled(true);
 			addUseAndChargeCost(pl);
 			playSpellEffects(EffectPosition.CASTER, pl);
-			pl.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, boostDuration, amplifier, false, !hidden), true);
+			pl.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, boostDuration, amplifier, false, !hidden));
 			if (acceleration) {
 				data.task = MagicSpells.scheduleRepeatingTask(() -> {
 					if (data.count >= accelerationAmount) {
@@ -111,16 +112,28 @@ public class HasteSpell extends BuffSpell {
 						return;
 					}
 					data.count++;
-					pl.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, boostDuration, amplifier + (data.count * accelerationIncrease), false, !hidden), true);
+					pl.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, boostDuration, amplifier + (data.count * accelerationIncrease), false, !hidden));
 				}, accelerationDelay, accelerationInterval);
 			}
 		} else {
-			pl.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 1, 0, false, !hidden), true);
+			pl.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 1, 0, false, !hidden));
 			pl.removePotionEffect(PotionEffectType.SPEED);
 			playSpellEffects(EffectPosition.DISABLED, pl);
 			MagicSpells.cancelTask(data.task);
 			data.count = 0;
 		}
+	}
+
+	@EventHandler(priority=EventPriority.MONITOR, ignoreCancelled=true)
+	public void onPlayerToggleSneak(PlayerToggleSneakEvent event) {
+		Player pl = event.getPlayer();
+		if (!isActive(pl)) return;
+		if (!pl.isSprinting()) return;
+		pl.removePotionEffect(PotionEffectType.SPEED);
+
+		HasteData data = hasted.get(pl.getUniqueId());
+		if (data == null) return;
+		MagicSpells.cancelTask(data.task);
 	}
 
 	private static class HasteData {

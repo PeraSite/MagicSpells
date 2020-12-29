@@ -39,10 +39,9 @@ public class ParseSpell extends TargetedSpell implements TargetedEntitySpell {
 		secondVariable = getConfigString("second-variable", "");
 	}
 
-
 	@Override
-	public void initialize() {
-		super.initialize();
+	public void initializeVariables() {
+		super.initializeVariables();
 		// Check if the related spell properties were defined properly.
 		switch (operation) {
 			case "translate":
@@ -73,8 +72,8 @@ public class ParseSpell extends TargetedSpell implements TargetedEntitySpell {
 				break;
 			case "regex":
 			case "regexp":
-				if (expectedValue.isEmpty()) {
-					MagicSpells.error("ParseSpell '" + internalName + "' has an invalid expected-value defined!");
+				if (parseTo.isEmpty()) {
+					MagicSpells.error("ParseSpell '" + internalName + "' has an invalid parse-to defined!");
 					break;
 				}
 				regexPattern = Pattern.compile(expectedValue);
@@ -139,9 +138,8 @@ public class ParseSpell extends TargetedSpell implements TargetedEntitySpell {
 			case "append":
 				receivedValue = MagicSpells.getVariableManager().getStringValue(variableToParse, (Player) target);
 				if (!receivedValue.equalsIgnoreCase(expectedValue) && !expectedValue.contains("any")) return;
-				String var = MagicSpells.getVariableManager().getStringValue(variableToParse, (Player) target);
-				var += parseTo;
-				MagicSpells.getVariableManager().set(parseToVariable, (Player) target, var);
+				receivedValue += parseTo;
+				MagicSpells.getVariableManager().set(parseToVariable, (Player) target, receivedValue);
 				break;
 			case "regex":
 			case "regexp":

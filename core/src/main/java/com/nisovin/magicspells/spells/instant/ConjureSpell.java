@@ -3,6 +3,7 @@ package com.nisovin.magicspells.spells.instant;
 import java.util.List;
 import java.util.Random;
 import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Location;
 import org.bukkit.ChatColor;
@@ -45,7 +46,7 @@ public class ConjureSpell extends InstantSpell implements TargetedEntitySpell, T
 
 	private static ExpirationHandler expirationHandler = null;
 
-	private Random rand = new Random();
+	private Random rand = ThreadLocalRandom.current();
 
 	private int delay;
 	private int pickupDelay;

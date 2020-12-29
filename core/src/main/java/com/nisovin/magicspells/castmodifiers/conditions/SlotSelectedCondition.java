@@ -4,17 +4,21 @@ import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.LivingEntity;
 
+import com.nisovin.magicspells.castmodifiers.conditions.util.OperatorCondition;
+
 public class SlotSelectedCondition extends OperatorCondition {
 
 	private int slot;
 
 	@Override
-	public boolean setVar(String var) {
-		if (var == null || var.isEmpty()) return false;
+	public boolean initialize(String var) {
+		if (var == null || var.length() < 2) return false;
+		if (!super.initialize(var)) return false;
+
 		try {
-			slot = Integer.parseInt(var);
-			return true;
-		} catch (NumberFormatException | NullPointerException nfe) {
+			slot = Integer.parseInt(var.substring(1));
+			return slot >= 0 && slot <= 8;
+		} catch (NumberFormatException nfe) {
 			return false;
 		}
 	}

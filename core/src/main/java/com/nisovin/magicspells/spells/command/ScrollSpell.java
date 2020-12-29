@@ -15,6 +15,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.command.CommandSender;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 
@@ -47,6 +48,7 @@ public class ScrollSpell extends CommandSpell {
 	private String strCantTeach;
 	private String strScrollName;
 	private String strScrollSubtext;
+	private String strConsoleUsage;
 
 	private int maxUses;
 	private int defaultUses;
@@ -76,6 +78,7 @@ public class ScrollSpell extends CommandSpell {
 		strCantTeach = getConfigString("str-cant-teach", "You cannot create a scroll with that spell.");
 		strScrollName = getConfigString("str-scroll-name", "Magic Scroll: %s");
 		strScrollSubtext = getConfigString("str-scroll-subtext", "Uses remaining: %u");
+		strConsoleUsage = getConfigString("str-console-usage", "Invalid arguments defined!\nValid arguments: <playerName> <spell> <scrollUses>");
 
 		maxUses = getConfigInt("max-uses", 10);
 		defaultUses = getConfigInt("default-uses", 5);
@@ -168,13 +171,49 @@ public class ScrollSpell extends CommandSpell {
 
 	@Override
 	public boolean castFromConsole(CommandSender sender, String[] args) {
-		return false;
+		if (args == null || args.length < 1) {
+			sender.sendMessage(strConsoleUsage);
+			return false;
+		}
+
+		List<Player> players = MagicSpells.plugin.getServer().matchPlayer(args[0]);
+		if (players.size() < 1) {
+			sender.sendMessage("Invalid player defined!");
+			return false;
+		}
+
+		Spell spell = MagicSpells.getSpellByInGameName(args[1]);
+		if (spell == null) {
+			sender.sendMessage(strNoSpell);
+			return false;
+		}
+
+		int uses = defaultUses;
+		if (args.length > 2 && RegexUtil.matches(CAST_ARGUMENT_USE_COUNT_PATTERN, args[2])) {
+			uses = Integer.parseInt(args[2]);
+		}
+
+		if (uses > maxUses || (maxUses > 0 && uses <= 0)) uses = maxUses;
+
+		int slot = -1;
+		for (int i = 0; i <= 35; i++) {
+			if (players.get(0).getInventory().getItem(i) == null) {
+				slot = i;
+				break;
+			}
+		}
+
+		if (slot != -1) players.get(0).getInventory().setItem(slot, createScroll(spell, uses, new ItemStack(itemType, 1)));
+
+		return true;
 	}
 	
 	public ItemStack createScroll(Spell spell, int uses, ItemStack item) {
 		if (item == null) item = new ItemStack(itemType);
-		item.setDurability((short) 0);
+
 		ItemMeta meta = item.getItemMeta();
+		if (meta instanceof Damageable) ((Damageable) meta).setDamage(0);
+
 		meta.setDisplayName(Util.colorize(strScrollName.replace("%s", spell.getName()).replace("%u", (uses >= 0 ? uses + "" : "many"))));
 		if (strScrollSubtext != null && !strScrollSubtext.isEmpty()) {
 			List<String> lore = new ArrayList<>();
@@ -208,10 +247,10 @@ public class ScrollSpell extends CommandSpell {
 		if (itemType != inHand.getType() || inHand.getAmount() > 1) return;
 		
 		// Check for predefined scroll
-		if (inHand.getDurability() > 0 && predefinedScrollSpells != null) {
-			Spell spell = predefinedScrollSpells.get(Integer.valueOf(inHand.getDurability()));
+		if (ItemUtil.getDurability(inHand) > 0 && predefinedScrollSpells != null) {
+			Spell spell = predefinedScrollSpells.get(ItemUtil.getDurability(inHand));
 			if (spell != null) {
-				int uses = predefinedScrollUses.get(Integer.valueOf(inHand.getDurability()));
+				int uses = predefinedScrollUses.get(ItemUtil.getDurability(inHand));
 				inHand = createScroll(spell, uses, inHand);
 				player.getEquipment().setItemInMainHand(inHand);
 			}
@@ -270,14 +309,21 @@ public class ScrollSpell extends CommandSpell {
 		
 		if (inHand == null || inHand.getType() != itemType) return;
 		
-		if (inHand.getDurability() > 0 && predefinedScrollSpells != null) {
-			Spell spell = predefinedScrollSpells.get(Integer.valueOf(inHand.getDurability()));
-			if (spell != null) {
-				int uses = predefinedScrollUses.get(Integer.valueOf(inHand.getDurability()));
-				inHand = createScroll(spell, uses, inHand);
-				player.getInventory().setItem(event.getNewSlot(), inHand);
-			}
+		if (isDurable(inHand) && predefinedScrollSpells != null) {
+			Spell spell = predefinedScrollSpells.get(ItemUtil.getDurability(inHand));
+			if (spell == null) return;
+			
+			int uses = predefinedScrollUses.get(ItemUtil.getDurability(inHand));
+			inHand = createScroll(spell, uses, inHand);
+			player.getInventory().setItem(event.getNewSlot(), inHand);
 		}
+
+	}
+
+	private boolean isDurable(ItemStack item) {
+		ItemMeta meta = item.getItemMeta();
+		if (!(meta instanceof Damageable)) return false;
+		return ((Damageable) meta).getDamage() > 0;
 	}
 	
 	private boolean actionAllowedForCast(Action action) {

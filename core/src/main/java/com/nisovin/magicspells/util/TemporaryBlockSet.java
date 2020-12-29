@@ -3,6 +3,7 @@ package com.nisovin.magicspells.util;
 import java.util.List;
 import java.util.Random;
 import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -32,7 +33,7 @@ public class TemporaryBlockSet implements Runnable {
 		this.callPlaceEvent = callPlaceEvent;
 		this.livingEntity = livingEntity;
 
-		random = new Random();
+		random = ThreadLocalRandom.current();
 		blocks = new ArrayList<>();
 		replaceMaterials = new ArrayList<>();
 

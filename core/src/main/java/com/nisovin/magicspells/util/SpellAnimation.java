@@ -71,9 +71,9 @@ public abstract class SpellAnimation implements Runnable {
 	/**
 	 * Stop the spell animation.
 	 */
-	public void stop() {
+	public void stop(boolean removeEntry) {
 		MagicSpells.cancelTask(taskId);
-		animations.remove(this);
+		if (removeEntry) animations.remove(this);
 	}
 
 	/**

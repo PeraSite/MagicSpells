@@ -17,7 +17,7 @@ public abstract class ProjectileManager {
 		}
 	}
 	
-	protected void testUsability() throws Exception {
+	protected void testUsability() {
 		// Force the class to load to trigger exceptions
 		if (getProjectileClass().getName().contains("class names cannot contain spaces")) {
 			MagicSpells.error("MagicSpells encountered a class with spaces in its name:  " + getProjectileClass().getCanonicalName());

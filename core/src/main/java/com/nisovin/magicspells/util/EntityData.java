@@ -14,18 +14,25 @@ import com.nisovin.magicspells.MagicSpells;
 
 public class EntityData {
 
+	private Vector relativeOffset;
+
 	private EntityType entityType;
 
 	private Material material;
 	private DyeColor dyeColor;
 	private DyeColor patternDyeColor;
 
+	private Cat.Type catType;
+	private Fox.Type foxType;
+	private Panda.Gene mainGene;
+	private Panda.Gene hiddenGene;
 	private Horse.Color horseColor;
 	private Horse.Style horseStyle;
 	private Rabbit.Type rabbitType;
 	private Llama.Color llamaColor;
 	private Parrot.Variant parrotVariant;
 	private Villager.Profession profession;
+	private MushroomCow.Variant cowVariant;
 	private TropicalFish.Pattern fishPattern;
 
 	private EulerAngle headAngle;
@@ -56,6 +63,8 @@ public class EntityData {
 
 	public EntityData(ConfigurationSection section) {
 		if (section == null) throw new NullPointerException("section");
+
+		relativeOffset = Util.getVector(section.getString("relative-offset", "0,0,0"));
 
 		size = section.getInt("size", 0);
 
@@ -92,10 +101,52 @@ public class EntityData {
 		String patternColor = section.getString("pattern-color", "");
 		String style = section.getString("style", "");
 		String entity = section.getString("entity", "");
+		String mainGeneType = section.getString("main-gene", "");
+		String hiddenGeneType = section.getString("hidden-gene", "");
 		switch (entity.toLowerCase()) {
 			case "player":
 				entityType = EntityType.PLAYER;
 				isPlayer = true;
+				break;
+			case "pillager":
+				entityType = EntityType.PILLAGER;
+				isMob = true;
+				break;
+			case "ravager":
+				entityType = EntityType.RAVAGER;
+				isMob = true;
+				break;
+			case "trader_llama":
+				entityType = EntityType.TRADER_LLAMA;
+				isMob = true;
+				break;
+			case "wandering_trader":
+				entityType = EntityType.WANDERING_TRADER;
+				isMob = true;
+				break;
+			case "hoglin":
+				entityType = EntityType.HOGLIN;
+				isMob = true;
+				break;
+			case "piglin":
+				entityType = EntityType.PIGLIN;
+				isMob = true;
+				break;
+			case "piglin_brute":
+				entityType = EntityType.PIGLIN_BRUTE;
+				isMob = true;
+				break;
+			case "zoglin":
+				entityType = EntityType.ZOGLIN;
+				isMob = true;
+				break;
+			case "strider":
+				entityType = EntityType.STRIDER;
+				isMob = true;
+				break;
+			case "bee":
+				entityType = EntityType.BEE;
+				isMob = true;
 				break;
 			case "wither_skeleton":
 				entityType = EntityType.WITHER_SKELETON;
@@ -108,6 +159,22 @@ public class EntityData {
 			case "creeper":
 				entityType = EntityType.CREEPER;
 				isMob = true;
+				break;
+			case "panda":
+				entityType = EntityType.PANDA;
+				isMob = true;
+				try {
+					 mainGene = Panda.Gene.valueOf(mainGeneType.toUpperCase());
+				} catch (Exception exception) {
+					MagicSpells.error("Invalid panda main gene: " + mainGeneType);
+					mainGene = null;
+				}
+				try {
+					hiddenGene = Panda.Gene.valueOf(hiddenGeneType.toUpperCase());
+				} catch (Exception exception) {
+					MagicSpells.error("Invalid panda hidden gene: " + hiddenGeneType);
+					hiddenGene = null;
+				}
 				break;
 			case "villager":
 				entityType = EntityType.VILLAGER;
@@ -149,6 +216,26 @@ public class EntityData {
 					dyeColor = null;
 				}
 				break;
+			case "fox":
+				entityType = EntityType.FOX;
+				isMob = true;
+				try {
+					foxType = Fox.Type.valueOf(type.toUpperCase());
+				} catch (Exception exception) {
+					MagicSpells.error("Invalid fox type: " + type);
+					foxType = null;
+				}
+				break;
+			case "cat":
+				entityType = EntityType.CAT;
+				isMob = true;
+				try {
+					catType = Cat.Type.valueOf(type.toUpperCase());
+				} catch (Exception exception) {
+					MagicSpells.error("Invalid cat type: " + type);
+					catType = null;
+				}
+				break;
 			case "pig":
 				entityType = EntityType.PIG;
 				isMob = true;
@@ -160,6 +247,12 @@ public class EntityData {
 			case "mooshroom":
 				entityType = EntityType.MUSHROOM_COW;
 				isMob = true;
+				try {
+					cowVariant = MushroomCow.Variant.valueOf(type.toUpperCase());
+				} catch (Exception exception) {
+					MagicSpells.error("Invalid mooshroom type: " + type);
+					cowVariant = null;
+				}
 				break;
 			case "magma_cube":
 				entityType = EntityType.MAGMA_CUBE;
@@ -338,7 +431,8 @@ public class EntityData {
 				isMob = true;
 				break;
 			case "zombie_pigman":
-				entityType = Util.getPigmanEntityType();
+			case "zombified_piglin":
+				entityType = MobUtil.getPigZombieEntityType();
 				isMob = true;
 				break;
 			case "silverfish":
@@ -465,6 +559,10 @@ public class EntityData {
 		return size;
 	}
 
+	public Fox.Type getFoxType() {
+		return foxType;
+	}
+
 	public Villager.Profession getProfession() {
 		return profession;
 	}
@@ -501,11 +599,34 @@ public class EntityData {
 		return rabbitType;
 	}
 
+	public Cat.Type getCatType() {
+		return catType;
+	}
+
+	public MushroomCow.Variant getCowVariant() {
+		return cowVariant;
+	}
+
+	public Panda.Gene getMainGene() {
+		return mainGene;
+	}
+
+	public Panda.Gene getHiddenGene() {
+		return hiddenGene;
+	}
 
 	public Entity spawn(Location location) {
 		if (location == null) throw new NullPointerException("location");
+
+		Location startLoc = location.clone();
+		Vector dir = startLoc.getDirection().normalize();
+
+		Vector horizOffset = new Vector(-dir.getZ(), 0, dir.getX()).normalize();
+		startLoc.add(horizOffset.multiply(relativeOffset.getZ())).getBlock().getLocation();
+		startLoc.add(startLoc.getDirection().clone().multiply(relativeOffset.getX()));
+		startLoc.setY(startLoc.getY() + relativeOffset.getY());
 		
-		Entity entity = location.getWorld().spawnEntity(location, entityType);
+		Entity entity = startLoc.getWorld().spawnEntity(startLoc, entityType);
 
 		if (entity instanceof Ageable) {
 			if (isBaby()) ((Ageable) entity).setBaby();
@@ -579,6 +700,19 @@ public class EntityData {
 				break;
 			case PARROT:
 				((Parrot) entity).setVariant(getParrotVariant());
+				break;
+			case FOX:
+				((Fox) entity).setFoxType(getFoxType());
+				break;
+			case CAT:
+				((Cat) entity).setCatType(getCatType());
+				break;
+			case MUSHROOM_COW:
+				((MushroomCow) entity).setVariant(getCowVariant());
+				break;
+			case PANDA:
+				((Panda) entity).setMainGene(getMainGene());
+				((Panda) entity).setHiddenGene(getMainGene());
 				break;
 		}
 

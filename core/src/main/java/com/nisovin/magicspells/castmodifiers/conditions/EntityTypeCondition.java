@@ -10,7 +10,7 @@ import org.bukkit.entity.Animals;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 
-import com.nisovin.magicspells.util.Util;
+import com.nisovin.magicspells.util.MobUtil;
 import com.nisovin.magicspells.castmodifiers.Condition;
 
 public class EntityTypeCondition extends Condition {
@@ -21,7 +21,7 @@ public class EntityTypeCondition extends Condition {
 	private Set<EntityType> types = new HashSet<>();
 	
 	@Override
-	public boolean setVar(String var) {
+	public boolean initialize(String var) {
 		String[] vars = var.replace(" ", "").split(",");
 		for (String v : vars) {
 			switch (v.toLowerCase()) {
@@ -35,7 +35,7 @@ public class EntityTypeCondition extends Condition {
 					animal = true;
 					break;
 				default:
-					EntityType type = Util.getEntityType(v);
+					EntityType type = MobUtil.getEntityType(v);
 					if (type != null) types.add(type);
 					break;
 			}

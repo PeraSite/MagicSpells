@@ -3,19 +3,19 @@ package com.nisovin.magicspells.castmodifiers.conditions;
 import org.bukkit.Location;
 import org.bukkit.entity.LivingEntity;
 
-import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.castmodifiers.conditions.util.OperatorCondition;
 
 public class AbsorptionCondition extends OperatorCondition {
 
 	private float health = 0;
 
 	@Override
-	public boolean setVar(String var) {
+	public boolean initialize(String var) {
 		if (var.length() < 2) {
 			return false;
 		}
 
-		super.setVar(var);
+		super.initialize(var);
 
 		try {
 			health = Float.parseFloat(var.substring(1));
@@ -41,9 +41,9 @@ public class AbsorptionCondition extends OperatorCondition {
 	}
 
 	private boolean absorption(LivingEntity target) {
-		if (equals) return MagicSpells.getVolatileCodeHandler().getAbsorptionHearts(target) == health;
-		else if (moreThan) return MagicSpells.getVolatileCodeHandler().getAbsorptionHearts(target) > health;
-		else if (lessThan) return MagicSpells.getVolatileCodeHandler().getAbsorptionHearts(target) < health;
+		if (equals) return target.getAbsorptionAmount() == health;
+		else if (moreThan) return target.getAbsorptionAmount() > health;
+		else if (lessThan) return target.getAbsorptionAmount() < health;
 		return false;
 	}
 	

@@ -15,6 +15,7 @@ import org.bukkit.entity.LivingEntity;
 
 import com.nisovin.magicspells.util.Util;
 import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.util.MobUtil;
 import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.spells.InstantSpell;
 import com.nisovin.magicspells.util.PlayerNameUtils;
@@ -51,7 +52,7 @@ public class DowseSpell extends InstantSpell {
 				entityType = EntityType.PLAYER;
 				playerName = entityName.split(":")[1];
 			} else {
-				entityType = Util.getEntityType(entityName);
+				entityType = MobUtil.getEntityType(entityName);
 			}
 		}
 

@@ -61,5 +61,10 @@ public class TxtUtil {
 		if (!matches.isEmpty()) return matches;
 		return null;
 	}
-	
+
+	public static String getPossessiveName(String name) {
+		name = name.trim();
+		return name + "'" + (name.endsWith("s") ? "" : "s");
+	}
+
 }

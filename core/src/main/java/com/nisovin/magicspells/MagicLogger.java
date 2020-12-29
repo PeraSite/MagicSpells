@@ -25,7 +25,8 @@ import com.nisovin.magicspells.events.SpellTargetLocationEvent;
 
 public class MagicLogger implements Listener {
 
-	private DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	private static final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
 	private FileWriter writer;
 	
 	MagicLogger(MagicSpells plugin) {

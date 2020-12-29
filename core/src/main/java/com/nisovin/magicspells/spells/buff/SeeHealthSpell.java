@@ -4,9 +4,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.Random;
 import java.util.HashSet;
+import java.util.concurrent.ThreadLocalRandom;
 
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -23,7 +22,7 @@ public class SeeHealthSpell extends BuffSpell {
 	private Set<UUID> bars;
 
 	private String colors = "01234567890abcdef";
-	private Random random = new Random();
+	private Random random = ThreadLocalRandom.current();
 
 	private int barSize;
 	private int interval;
@@ -105,7 +104,7 @@ public class SeeHealthSpell extends BuffSpell {
 			for (int i = 0; i < barSize - remain; i++) sb.append(symbol);
 		}
 
-		player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(sb.toString()));
+		player.sendActionBar(sb.toString());
 	}
 	
 	private class Updater implements Runnable {

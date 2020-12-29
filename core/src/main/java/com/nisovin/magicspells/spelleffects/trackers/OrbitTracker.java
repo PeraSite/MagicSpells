@@ -53,7 +53,7 @@ public class OrbitTracker extends EffectTracker implements Runnable {
 
 		Location loc = getLocation();
 
-		if (entity instanceof LivingEntity && !effect.getModifiers().check((LivingEntity) entity)) return;
+		if (entity instanceof LivingEntity && effect.getModifiers() != null && !effect.getModifiers().check((LivingEntity) entity)) return;
 
 		effect.playEffect(loc);
 	}
@@ -64,7 +64,7 @@ public class OrbitTracker extends EffectTracker implements Runnable {
 		else perp = new Vector(-currentPosition.getZ(), 0, currentPosition.getX());
 		currentPosition.add(perp.multiply(effect.getDistancePerTick())).normalize();
 		Vector pos = VectorUtils.rotateVector(currentPosition.clone(), xAxis, yAxis, zAxis);
-		return entity.getLocation().clone().add(0, orbHeight, 0).add(pos.multiply(orbRadius));
+		return entity.getLocation().clone().add(0, orbHeight, 0).add(pos.multiply(orbRadius)).setDirection(perp);
 	}
 
 	@Override

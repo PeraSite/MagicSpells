@@ -4,7 +4,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.configuration.ConfigurationSection;
 
-import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.util.ItemUtil;
 import com.nisovin.magicspells.util.magicitems.MagicItemData;
 
 public class CustomModelDataHandler {
@@ -17,7 +17,7 @@ public class CustomModelDataHandler {
 
 		int customModelData = config.getInt(CONFIG_NAME);
 
-		MagicSpells.getVolatileCodeHandler().setCustomModelData(meta, customModelData);
+		ItemUtil.setCustomModelData(meta, customModelData);
 		data.setCustomModelData(customModelData);
 		return meta;
 	}
@@ -29,7 +29,7 @@ public class CustomModelDataHandler {
 		int customModelData = data.getCustomModelData();
 		if (customModelData <= 0) return meta;
 
-		MagicSpells.getVolatileCodeHandler().setCustomModelData(meta, customModelData);
+		ItemUtil.setCustomModelData(meta, customModelData);
 		return meta;
 	}
 
@@ -37,7 +37,7 @@ public class CustomModelDataHandler {
 		if (itemData == null) return null;
 		if (itemStack == null) return itemData;
 
-		itemData.setCustomModelData(MagicSpells.getVolatileCodeHandler().getCustomModelData(itemStack.getItemMeta()));
+		itemData.setCustomModelData(ItemUtil.getCustomModelData(itemStack.getItemMeta()));
 		return itemData;
 	}
 

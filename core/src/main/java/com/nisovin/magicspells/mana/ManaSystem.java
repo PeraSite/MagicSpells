@@ -8,8 +8,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.ArrayList;
 
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
@@ -127,7 +125,6 @@ public class ManaSystem extends ManaHandler {
 	public void createManaBar(final Player player) {
 		boolean update = manaBars.containsKey(player.getUniqueId());
 		ManaBar bar = getManaBar(player);
-		if (bar == null) return;
 		if (update) {
 			ManaRank rank = getRank(player);
 			if (rank != bar.getManaRank()) {
@@ -172,48 +169,42 @@ public class ManaSystem extends ManaHandler {
 	@Override
 	public int getMaxMana(Player player) {
 		ManaBar bar = getManaBar(player);
-		if (bar != null) return bar.getMaxMana();
-		return 0;
+		return bar.getMaxMana();
 	}
 	
 	@Override
 	public void setMaxMana(Player player, int amount) {
 		ManaBar bar = getManaBar(player);
-		if (bar != null) bar.setMaxMana(amount);
+		bar.setMaxMana(amount);
 	}
 	
 	@Override
 	public int getRegenAmount(Player player) {
 		ManaBar bar = getManaBar(player);
-		if (bar == null) return 0;
 		return bar.getRegenAmount();
 	}
 
 	@Override
 	public void setRegenAmount(Player player, int amount) {
 		ManaBar bar = getManaBar(player);
-		if (bar == null) return;
 		bar.setRegenAmount(amount);
 	}
 
 	@Override
 	public int getMana(Player player) {
 		ManaBar bar = getManaBar(player);
-		if (bar == null) return 0;
 		return bar.getMana();
 	}
 	
 	@Override
 	public boolean hasMana(Player player, int amount) {
 		ManaBar bar = getManaBar(player);
-		if (bar == null) return false;
 		return bar.has(amount);
 	}
 
 	@Override
 	public boolean addMana(Player player, int amount, ManaChangeReason reason) {
 		ManaBar bar = getManaBar(player);
-		if (bar == null) return false;
 		boolean r = bar.changeMana(amount, reason);
 		if (r) showMana(player, showManaOnUse);
 		return r;
@@ -227,7 +218,6 @@ public class ManaSystem extends ManaHandler {
 	@Override
 	public boolean setMana(Player player, int amount, ManaChangeReason reason) {
 		ManaBar bar = getManaBar(player);
-		if (bar == null) return false;
 		boolean r = bar.setMana(amount, reason);
 		if (r) showMana(player, showManaOnUse);
 		return r;
@@ -236,7 +226,6 @@ public class ManaSystem extends ManaHandler {
 	@Override
 	public void showMana(Player player, boolean showInChat) {
 		ManaBar bar = getManaBar(player);
-		if (bar == null) return;
 		if (showInChat) showManaInChat(player, bar);
 		if (showManaOnHungerBar) showManaOnHungerBar(player, bar);
 		if (showManaOnActionBar) showManaOnActionBar(player, bar);
@@ -274,7 +263,7 @@ public class ManaSystem extends ManaHandler {
 	}
 
 	private void showManaOnActionBar(Player player, ManaBar bar) {
-		player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(getManaMessage(bar)));
+		player.sendActionBar(getManaMessage(bar));
 	}
 	
 	private void showManaOnExperienceBar(Player player, ManaBar bar) {
@@ -306,11 +295,11 @@ public class ManaSystem extends ManaHandler {
 	
 	private class Regenerator implements Runnable {
 
-		private ManaRank rank;
+		private final ManaRank rank;
 
-		private int taskId;
+		private final int taskId;
 
-		Regenerator(ManaRank rank, int regenInterval) {
+		private Regenerator(ManaRank rank, int regenInterval) {
 			this.rank = rank;
 			taskId = MagicSpells.scheduleRepeatingTask(this, regenInterval, regenInterval);
 		}

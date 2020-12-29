@@ -114,14 +114,14 @@ public class BombSpell extends TargetedSpell implements TargetedLocationSpell {
 			protected void onTick(int tick) {
 				time += interval;
 				if (time >= fuse) {
-					stop();
+					stop(true);
 					if (material.equals(block.getType())) {
 						blocks.remove(block);
 						block.setType(Material.AIR);
 						playSpellEffects(EffectPosition.DELAYED, l);
 						if (targetSpell != null) targetSpell.castAtLocation(livingEntity, l, power);
 					}
-				} else if (!material.equals(block.getType())) stop();
+				} else if (!material.equals(block.getType())) stop(true);
 				else playSpellEffects(EffectPosition.SPECIAL, l);
 			}
 				

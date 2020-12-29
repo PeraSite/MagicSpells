@@ -15,7 +15,7 @@ public class BuffManager {
 
 	private Map<LivingEntity, Set<BuffSpell>> activeBuffs;
 
-	private int interval;
+	private final int interval;
 
 	private Monitor monitor;
 
@@ -58,7 +58,7 @@ public class BuffManager {
 
 	private class Monitor implements Runnable {
 
-		private int taskId;
+		private final int taskId;
 
 		private Monitor() {
 			taskId = MagicSpells.scheduleRepeatingTask(this, interval, interval);

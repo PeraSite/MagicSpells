@@ -11,7 +11,7 @@ import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 
 import com.nisovin.magicspells.spells.BuffSpell;
 import com.nisovin.magicspells.util.MagicConfig;
-import com.nisovin.magicspells.spells.SpellDamageSpell;
+import com.nisovin.magicspells.spells.DamageSpell;
 import com.nisovin.magicspells.events.SpellApplyDamageEvent;
 
 public class ResistSpell extends BuffSpell {
@@ -73,10 +73,10 @@ public class ResistSpell extends BuffSpell {
 	@EventHandler
 	public void onSpellDamage(SpellApplyDamageEvent event) {
 		if (spellDamageTypes.isEmpty()) return;
-		if (!(event.getSpell() instanceof SpellDamageSpell)) return;
+		if (!(event.getSpell() instanceof DamageSpell)) return;
 		if (!isActive(event.getTarget())) return;
 
-		SpellDamageSpell spell = (SpellDamageSpell) event.getSpell();
+		DamageSpell spell = (DamageSpell) event.getSpell();
 		String spellDamageType = spell.getSpellDamageType();
 		if (spellDamageType == null) return;
 		if (!spellDamageTypes.contains(spellDamageType)) return;

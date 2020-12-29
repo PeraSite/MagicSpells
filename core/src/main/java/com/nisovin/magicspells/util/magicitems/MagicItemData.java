@@ -257,8 +257,8 @@ public class MagicItemData {
 	public boolean equals(MagicItemData data) {
 		String dataName = data.getName();
 		String internalName = name;
-		if (dataName != null) dataName = ChatColor.stripColor(Util.colorize(data.getName()));
-		if (internalName != null) internalName = ChatColor.stripColor(Util.colorize(internalName));
+		if (dataName != null) dataName = Util.decolorize(data.getName());
+		if (internalName != null) internalName = Util.decolorize(internalName);
 
 		Map<Enchantment, Integer> enchants = new HashMap<>(data.getEnchantments());
 		if (enchants.containsKey(Enchantment.FROST_WALKER) && enchants.get(Enchantment.FROST_WALKER) == 65535) enchants.clear();

@@ -82,12 +82,11 @@ public class ItemSerializeSpell extends CommandSpell {
 	
 	private File makeFile() {
 		File file = new File(dataFolder, System.currentTimeMillis() + ".yml");
-		if (!file.exists()) {
-			try {
-				file.createNewFile();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+		if (file.exists()) return file;
+		try {
+			file.createNewFile();
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 		return file;
 	}
@@ -96,7 +95,7 @@ public class ItemSerializeSpell extends CommandSpell {
 		ConfigurationSection section = AlternativeReaderManager.serialize(serializerKey, itemStack);
 		File file = makeFile();
 		YamlConfiguration outputYaml = new YamlConfiguration();
-		outputYaml.set("predefined-items." + System.currentTimeMillis(), section);
+		outputYaml.set("magic-items." + System.currentTimeMillis(), section);
 		outputYaml.options().indent(indentation);
 		try {
 			outputYaml.save(file);

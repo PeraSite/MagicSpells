@@ -37,7 +37,7 @@ public class ForcetossSpell extends TargetedSpell implements TargetedEntitySpell
 		checkPlugins = getConfigBoolean("check-plugins", true);
 		powerAffectsForce = getConfigBoolean("power-affects-force", true);
 		addVelocityInstead = getConfigBoolean("add-velocity-instead", false);
-		avoidDamageModification = getConfigBoolean("avoid-damage-modification", false);
+		avoidDamageModification = getConfigBoolean("avoid-damage-modification", true);
 	}
 
 	@Override

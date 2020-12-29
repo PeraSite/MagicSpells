@@ -1,11 +1,12 @@
 package com.nisovin.magicspells.util;
 
-import com.nisovin.magicspells.MagicSpells;
-import com.nisovin.magicspells.Spell;
-import org.bukkit.GameMode;
-import org.bukkit.entity.*;
-
 import java.util.*;
+
+import org.bukkit.entity.*;
+import org.bukkit.GameMode;
+
+import com.nisovin.magicspells.Spell;
+import com.nisovin.magicspells.MagicSpells;
 
 public class ValidTargetList {
 	
@@ -149,7 +150,7 @@ public class ValidTargetList {
 					targetEntityTarget = true;
 					break;
 				default:
-					EntityType type = Util.getEntityType(s);
+					EntityType type = MobUtil.getEntityType(s);
 					if (type != null) types.add(type);
 					else MagicSpells.error("Spell '" + spell.getInternalName() + "' has an invalid target type defined: " + s);
 			}
@@ -195,6 +196,24 @@ public class ValidTargetList {
 		// Todo, Make it optional for both CREATIVE and SPECTATOR to be no target
 		if (targetIsPlayer && ((Player) target).getGameMode() == GameMode.CREATIVE) return false;
 		if (targetIsPlayer && ((Player) target).getGameMode() == GameMode.SPECTATOR) return false;
+		if (targetPlayers && targetIsPlayer) return true;
+		if (targetNonPlayers && !targetIsPlayer) return true;
+		if (targetMonsters && target instanceof Monster) return true;
+		if (targetAnimals && target instanceof Animals) return true;
+		// Lets target mounts (Again...)
+		if (targetPassengers && target instanceof LivingEntity && !target.getVehicle().isEmpty()) return true;
+		if (targetMounts && target instanceof LivingEntity && !target.getPassengers().isEmpty() && target.getVehicle().isEmpty()) return true;
+		if (types.contains(target.getType())) return true;
+		return false;
+	}
+
+	public boolean canTarget(Entity target, boolean ignoreGameMode) {
+		if (!(target instanceof LivingEntity) && !targetNonLivingEntities) return false;
+		boolean targetIsPlayer = target instanceof Player;
+		if (!ignoreGameMode) {
+			if (targetIsPlayer && ((Player) target).getGameMode() == GameMode.CREATIVE) return false;
+			if (targetIsPlayer && ((Player) target).getGameMode() == GameMode.SPECTATOR) return false;
+		}
 		if (targetPlayers && targetIsPlayer) return true;
 		if (targetNonPlayers && !targetIsPlayer) return true;
 		if (targetMonsters && target instanceof Monster) return true;

@@ -13,6 +13,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
+import com.nisovin.magicspells.Subspell;
 import com.nisovin.magicspells.MagicSpells;
 import com.nisovin.magicspells.util.TargetInfo;
 import com.nisovin.magicspells.util.MagicConfig;
@@ -36,6 +37,14 @@ public class SilenceSpell extends TargetedSpell implements TargetedEntitySpell {
 	private boolean preventCast;
 	private boolean preventChat;
 	private boolean preventCommands;
+
+	private final String preventCastSpellName;
+	private final String preventChatSpellName;
+	private final String preventCommandSpellName;
+
+	private Subspell preventCastSpell;
+	private Subspell preventChatSpell;
+	private Subspell preventCommandSpell;
 	
 	public SilenceSpell(MagicConfig config, String spellName) {
 		super(config, spellName);
@@ -47,6 +56,10 @@ public class SilenceSpell extends TargetedSpell implements TargetedEntitySpell {
 		preventCast = getConfigBoolean("prevent-cast", true);
 		preventChat = getConfigBoolean("prevent-chat", false);
 		preventCommands = getConfigBoolean("prevent-commands", false);
+
+		preventCastSpellName = getConfigString("spell-on-denied-cast", "");
+		preventChatSpellName = getConfigString("spell-on-denied-chat", "");
+		preventCommandSpellName = getConfigString("spell-on-denied-command", "");
 
 		List<String> allowedSpellNames = getConfigStringList("allowed-spells", null);
 		List<String> disallowedSpellNames = getConfigStringList("disallowed-spells", null);
@@ -64,9 +77,18 @@ public class SilenceSpell extends TargetedSpell implements TargetedEntitySpell {
 	public void initialize() {
 		super.initialize();
 		
-		if (preventCast) registerEvents(new CastListener());
-		if (preventChat) registerEvents(new ChatListener());
-		if (preventCommands) registerEvents(new CommandListener());
+		if (preventCast) {
+			preventCastSpell = initSubspell(preventCastSpellName, "SilenceSpell '" + internalName + "' has an invalid spell-on-denied-cast defined.");
+			registerEvents(new CastListener());
+		}
+		if (preventChat) {
+			preventChatSpell = initSubspell(preventChatSpellName, "SilenceSpell '" + internalName + "' has an invalid spell-on-denied-chat defined.");
+			registerEvents(new ChatListener());
+		}
+		if (preventCommands) {
+			preventCommandSpell = initSubspell(preventCommandSpellName, "SilenceSpell '" + internalName + "' has an invalid spell-on-denied-command defined.");
+			registerEvents(new CommandListener());
+		}
 	}
 
 	@Override
@@ -122,7 +144,10 @@ public class SilenceSpell extends TargetedSpell implements TargetedEntitySpell {
 			if (!silenced.containsKey(event.getCaster().getUniqueId())) return;
 			if (filter.check(event.getSpell())) return;
 			event.setCancelled(true);
-			Bukkit.getScheduler().scheduleSyncDelayedTask(MagicSpells.plugin, () -> sendMessage(strSilenced, event.getCaster(), event.getSpellArgs()));
+			Bukkit.getScheduler().scheduleSyncDelayedTask(MagicSpells.plugin, () -> {
+				if (preventCastSpell != null) preventCastSpell.cast(event.getCaster(), 1);
+				sendMessage(strSilenced, event.getCaster(), event.getSpellArgs());
+			});
 		}
 		
 	}
@@ -133,6 +158,7 @@ public class SilenceSpell extends TargetedSpell implements TargetedEntitySpell {
 		public void onChat(AsyncPlayerChatEvent event) {
 			if (!silenced.containsKey(event.getPlayer().getUniqueId())) return;
 			event.setCancelled(true);
+			if (preventChatSpell != null) preventChatSpell.cast(event.getPlayer(), 1);
 			sendMessage(strSilenced, event.getPlayer(), MagicSpells.NULL_ARGS);
 		}
 		
@@ -144,6 +170,7 @@ public class SilenceSpell extends TargetedSpell implements TargetedEntitySpell {
 		public void onCommand(PlayerCommandPreprocessEvent event) {
 			if (!silenced.containsKey(event.getPlayer().getUniqueId())) return;
 			event.setCancelled(true);
+			if (preventCommandSpell != null) preventCommandSpell.cast(event.getPlayer(), 1);
 			sendMessage(strSilenced, event.getPlayer(), MagicSpells.NULL_ARGS);
 		}
 		

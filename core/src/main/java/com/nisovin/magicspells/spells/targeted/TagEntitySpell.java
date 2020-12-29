@@ -1,22 +1,21 @@
 package com.nisovin.magicspells.spells.targeted;
 
-import com.nisovin.magicspells.MagicSpells;
-import com.nisovin.magicspells.spelleffects.EffectPosition;
-import com.nisovin.magicspells.spells.TargetedEntitySpell;
-import com.nisovin.magicspells.spells.TargetedSpell;
-import com.nisovin.magicspells.util.MagicConfig;
-import com.nisovin.magicspells.util.TargetInfo;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
-
-import java.util.HashSet;
 import java.util.Set;
+import java.util.HashSet;
+
+import org.bukkit.entity.Player;
+import org.bukkit.entity.LivingEntity;
+import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.util.TargetInfo;
+import com.nisovin.magicspells.util.MagicConfig;
+import com.nisovin.magicspells.spells.TargetedSpell;
+import com.nisovin.magicspells.spells.TargetedEntitySpell;
+import com.nisovin.magicspells.spelleffects.EffectPosition;
 
 public class TagEntitySpell extends TargetedSpell implements TargetedEntitySpell {
 
-	private String operation;
-	private String tag;
-	private String varTag;
+	private final String operation;
+	private final String tag;
 
 	public TagEntitySpell(MagicConfig config, String spellName) {
 		super(config, spellName);
@@ -55,20 +54,18 @@ public class TagEntitySpell extends TargetedSpell implements TargetedEntitySpell
 	}
 
 	private void tag(LivingEntity caster, LivingEntity target) {
+		String varTag = tag;
+		if (caster instanceof Player && varTag.contains("%")) {
+			varTag = MagicSpells.doVariableReplacements((Player) caster, varTag);
+		}
 		switch (operation) {
 			case "add":
 			case "insert":
-				if (tag.contains("%") && caster instanceof Player) {
-					varTag = MagicSpells.doVariableReplacements((Player) caster, tag);
-					target.addScoreboardTag(varTag);
-				} else target.addScoreboardTag(tag);
+				target.addScoreboardTag(varTag);
 				break;
 			case "remove":
 			case "take":
-				if (tag.contains("%") && caster instanceof Player) {
-					varTag = MagicSpells.doVariableReplacements((Player) caster, tag);
-					target.removeScoreboardTag(varTag);
-				} else target.removeScoreboardTag(tag);
+				target.removeScoreboardTag(varTag);
 				break;
 			case "clear":
 				Set<String> tags = new HashSet<>(target.getScoreboardTags());

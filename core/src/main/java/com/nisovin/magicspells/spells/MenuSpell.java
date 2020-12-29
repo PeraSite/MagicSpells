@@ -2,6 +2,8 @@ package com.nisovin.magicspells.spells;
 
 import java.util.*;
 
+import co.aikar.commands.ACFUtil;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
@@ -22,6 +24,7 @@ import com.nisovin.magicspells.MagicSpells;
 import com.nisovin.magicspells.util.TargetInfo;
 import com.nisovin.magicspells.util.BlockUtils;
 import com.nisovin.magicspells.util.MagicConfig;
+import com.nisovin.magicspells.variables.Variable;
 import com.nisovin.magicspells.util.PlayerNameUtils;
 import com.nisovin.magicspells.castmodifiers.ModifierSet;
 import com.nisovin.magicspells.util.magicitems.MagicItem;
@@ -114,13 +117,13 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 					continue;
 				}
 			}
-			else item.setAmount(getConfigInt(path + "quantity", 1));
 
 			MenuOption option = new MenuOption();
 			option.menuOptionName = optionName;
 			option.slots = validSlots;
 			option.item = item;
 			option.items = items;
+			option.quantity = getConfigString(path + "quantity", "");
 			option.spellName = getConfigString(path + "spell", "");
 			option.spellRightName = getConfigString(path + "spell-right", "");
 			option.spellMiddleName = getConfigString(path + "spell-middle", "");
@@ -136,15 +139,24 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 	}
 
 	@Override
+	public void initializeModifiers() {
+		super.initializeModifiers();
+
+		for (MenuOption option : options.values()) {
+			if (option.modifierList != null) option.menuOptionModifiers = new ModifierSet(option.modifierList);
+		}
+	}
+
+	@Override
 	public void initialize() {
 		super.initialize();
+
 		for (MenuOption option : options.values()) {
 			option.spell = initSubspell(option.spellName, "MenuSpell '" + internalName + "' has an invalid 'spell' defined for: " + option.menuOptionName);
 			option.spellRight = initSubspell(option.spellRightName, "MenuSpell '" + internalName + "' has an invalid 'spell' defined for: " + option.menuOptionName);
 			option.spellMiddle = initSubspell(option.spellMiddleName, "MenuSpell '" + internalName + "' has an invalid 'spell' defined for: " + option.menuOptionName);
 			option.spellSneakLeft = initSubspell(option.spellSneakLeftName, "MenuSpell '" + internalName + "' has an invalid 'spell' defined for: " + option.menuOptionName);
 			option.spellSneakRight = initSubspell(option.spellSneakRightName, "MenuSpell '" + internalName + "' has an invalid 'spell' defined for: " + option.menuOptionName);
-			if (option.modifierList != null) option.menuOptionModifiers = new ModifierSet(option.modifierList);
 		}
 	}
 
@@ -278,6 +290,13 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 			ItemStack item = (option.item != null ? option.item : option.items.get(Util.getRandomInt(option.items.size()))).clone();
 			item = MagicSpells.getVolatileCodeHandler().setNBTString(item, "menuOption", option.menuOptionName);
 			item = translateItem(opener, args, item);
+
+			int quantity;
+			Variable variable = MagicSpells.getVariableManager().getVariable(option.quantity);
+			if (variable == null) quantity = ACFUtil.parseInt(option.quantity, 1);
+			else quantity = (int) Math.round(variable.getValue(opener));
+			item.setAmount(quantity);
+
 			// Set item for all defined slots.
 			for (int slot : option.slots) {
 				if (inv.getItem(slot) == null) inv.setItem(slot, item);
@@ -376,6 +395,7 @@ public class MenuSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 		private List<Integer> slots;
 		private ItemStack item;
 		private List<ItemStack> items;
+		private String quantity;
 		private String spellName;
 		private String spellRightName;
 		private String spellMiddleName;

@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.bukkit.Color;
 import org.bukkit.Material;
-import org.bukkit.ChatColor;
 import org.bukkit.potion.PotionType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -50,12 +49,12 @@ public class CastItem {
 		if (isTypeValid()) {
 			if (!MagicSpells.ignoreCastItemNames()) {
 				if (meta.getDisplayName().isEmpty()) name = null;
-				else if (MagicSpells.ignoreCastItemNameColors()) name = ChatColor.stripColor(meta.getDisplayName());
+				else if (MagicSpells.ignoreCastItemNameColors()) name = Util.decolorize(meta.getDisplayName());
 				else name = meta.getDisplayName();
 			}
 			if (!MagicSpells.ignoreCastItemAmount()) amount = item.getAmount();
 			if (!MagicSpells.ignoreCastItemDurability(type) && ItemUtil.hasDurability(type)) durability = DurabilityHandler.getDurability(meta);
-			if (!MagicSpells.ignoreCastItemCustomModelData()) customModelData = MagicSpells.getVolatileCodeHandler().getCustomModelData(meta);
+			if (!MagicSpells.ignoreCastItemCustomModelData()) customModelData = ItemUtil.getCustomModelData(meta);
 			if (!MagicSpells.ignoreCastItemBreakability()) unbreakable = meta.isUnbreakable();
 			if (!MagicSpells.ignoreCastItemColor()) color = LeatherArmorHandler.getColor(meta);
 			if (!MagicSpells.ignoreCastItemPotionType()) potionType = PotionHandler.getPotionType(meta);
@@ -73,7 +72,7 @@ public class CastItem {
 			type = data.getType();
 			if (isTypeValid()) {
 				if (!MagicSpells.ignoreCastItemNames() && data.getName() != null) {
-					if (MagicSpells.ignoreCastItemNameColors()) name = ChatColor.stripColor(Util.colorize(data.getName()));
+					if (MagicSpells.ignoreCastItemNameColors()) name = Util.decolorize(data.getName());
 					else name = Util.colorize(data.getName());
 				}
 				if (!MagicSpells.ignoreCastItemAmount()) amount = data.getAmount();

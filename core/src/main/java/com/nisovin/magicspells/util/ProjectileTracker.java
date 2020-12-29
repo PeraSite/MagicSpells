@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.HashSet;
 import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -15,11 +16,13 @@ import org.bukkit.entity.Entity;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.util.NumberConversions;
 
 import com.nisovin.magicspells.Subspell;
 import com.nisovin.magicspells.MagicSpells;
 import com.nisovin.magicspells.util.compat.EventUtil;
 import com.nisovin.magicspells.events.SpellTargetEvent;
+import com.nisovin.magicspells.zones.NoMagicZoneManager;
 import com.nisovin.magicspells.castmodifiers.ModifierSet;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
 import com.nisovin.magicspells.events.ParticleProjectileHitEvent;
@@ -29,11 +32,16 @@ import io.papermc.lib.PaperLib;
 
 import de.slikey.effectlib.Effect;
 
+import org.apache.commons.math3.util.FastMath;
+
 public class ProjectileTracker implements Runnable {
 
-	private Random rand = new Random();
+	private final Random rand = ThreadLocalRandom.current();
+
+	private NoMagicZoneManager zoneManager;
 
 	private Set<Effect> effectSet;
+	private Set<Entity> entitySet;
 	private Set<ArmorStand> armorStandSet;
 
 	private LivingEntity caster;
@@ -58,6 +66,7 @@ public class ProjectileTracker implements Runnable {
 	private ProjectileTracker tracker;
 	private ParticleProjectileSpell spell;
 	private Set<Material> groundMaterials;
+	private Set<Material> disallowedGroundMaterials;
 	private ValidTargetList targetList;
 	private ModifierSet projectileModifiers;
 	private Map<String, Subspell> interactionSpells;
@@ -175,19 +184,20 @@ public class ProjectileTracker implements Runnable {
 
 		previousLocation = startLocation.clone();
 		currentLocation = startLocation.clone();
-		currentVelocity = from.setDirection(dir).getDirection();
+		currentVelocity = setDirection(from, dir).getDirection();
 
 		init();
 	}
 
 	private void init() {
+		zoneManager = MagicSpells.getNoMagicZoneManager();
 		counter = 0;
 		if (projectileHorizOffset != 0) Util.rotateVector(currentVelocity, projectileHorizOffset);
 		if (projectileVertOffset != 0) currentVelocity.add(new Vector(0, projectileVertOffset, 0)).normalize();
 		if (projectileVertSpread > 0 || projectileHorizSpread > 0) {
-			float rx = -1 + rand.nextFloat() * (1 + 1);
-			float ry = -1 + rand.nextFloat() * (1 + 1);
-			float rz = -1 + rand.nextFloat() * (1 + 1);
+			float rx = -1 + rand.nextFloat() * 2;
+			float ry = -1 + rand.nextFloat() * 2;
+			float rz = -1 + rand.nextFloat() * 2;
 			currentVelocity.add(new Vector(rx * projectileHorizSpread, ry * projectileVertSpread, rz * projectileHorizSpread));
 		}
 		if (hugSurface) {
@@ -202,10 +212,11 @@ public class ProjectileTracker implements Runnable {
 		immune = new HashSet<>();
 		maxHitLimit = 0;
 		hitBox = new BoundingBox(currentLocation, horizontalHitRadius, verticalHitRadius);
-		currentLocation.setDirection(currentVelocity);
+		setDirection(currentLocation, currentVelocity);
 		tracker = this;
 		if (spell != null) {
 			effectSet = spell.playEffectsProjectile(EffectPosition.PROJECTILE, currentLocation);
+			entitySet = spell.playEntityEffectsProjectile(EffectPosition.PROJECTILE, currentLocation);
 			armorStandSet = spell.playArmorStandEffectsProjectile(EffectPosition.PROJECTILE, currentLocation);
 			ParticleProjectileSpell.getProjectileTrackers().add(tracker);
 		}
@@ -219,6 +230,11 @@ public class ProjectileTracker implements Runnable {
 		previousLocation = Util.makeFinite(previousLocation);
 
 		if (caster != null && !caster.isValid()) {
+			stop(true);
+			return;
+		}
+
+		if (zoneManager.willFizzle(currentLocation, spell)) {
 			stop(true);
 			return;
 		}
@@ -242,7 +258,7 @@ public class ProjectileTracker implements Runnable {
 			currentVelocity = caster.getLocation().getDirection();
 			if (hugSurface) currentVelocity.setY(0).normalize();
 			currentVelocity.multiply(projectileVelocity / ticksPerSecond);
-			currentLocation.setDirection(currentVelocity);
+			setDirection(currentLocation, currentVelocity);
 		}
 
 		currentVelocity = Util.makeFinite(currentVelocity);
@@ -295,7 +311,7 @@ public class ProjectileTracker implements Runnable {
 		if (projectileHorizGravity != 0) Util.rotateVector(currentVelocity, (projectileHorizGravity / ticksPerSecond) * counter);
 
 		// Rotate effects properly
-		currentLocation.setDirection(currentVelocity);
+		setDirection(currentLocation, currentVelocity);
 
 		if (effectSet != null) {
 			for (Effect effect : effectSet) {
@@ -303,7 +319,7 @@ public class ProjectileTracker implements Runnable {
 			}
 		}
 
-		if (armorStandSet != null) {
+		if (armorStandSet != null || entitySet != null) {
 			// Changing the effect location
 			Vector dir = currentLocation.getDirection().normalize();
 			Vector horizOffset = new Vector(-dir.getZ(), 0.0, dir.getX()).normalize();
@@ -312,8 +328,18 @@ public class ProjectileTracker implements Runnable {
 			effectLoc.add(effectLoc.getDirection().multiply(effectOffset.getX()));
 			effectLoc.setY(effectLoc.getY() + effectOffset.getY());
 
-			for (ArmorStand armorStand : armorStandSet) {
-				PaperLib.teleportAsync(armorStand, effectLoc);
+			effectLoc = Util.makeFinite(effectLoc);
+
+			if (armorStandSet != null) {
+				for (ArmorStand armorStand : armorStandSet) {
+					PaperLib.teleportAsync(armorStand, effectLoc);
+				}
+			}
+
+			if (entitySet != null) {
+				for (Entity entity : entitySet) {
+					PaperLib.teleportAsync(entity, effectLoc);
+				}
 			}
 		}
 
@@ -347,7 +373,7 @@ public class ProjectileTracker implements Runnable {
 		} else nearBlocks = BlockUtils.getNearbyBlocks(currentLocation, groundHorizontalHitRadius, groundVerticalHitRadius);
 
 		for (Block b : nearBlocks) {
-			if (!groundMaterials.contains(b.getType())) continue;
+			if (!groundMaterials.contains(b.getType()) || disallowedGroundMaterials.contains(b.getType())) continue;
 			if (hitGround && groundSpell != null) {
 				Util.setLocationFacingFromVector(previousLocation, currentVelocity);
 				groundSpell.castAtLocation(caster, previousLocation, power);
@@ -411,6 +437,28 @@ public class ProjectileTracker implements Runnable {
 		trackers.clear();
 	}
 
+	private Location setDirection(Location loc, Vector v) {
+
+		final double _2PI = 2 * FastMath.PI;
+		final double x = v.getX();
+		final double z = v.getZ();
+
+		if (x == 0 && z == 0) {
+			loc.setPitch(v.getY() > 0 ? -90 : 90);
+			return loc;
+		}
+
+		double theta = FastMath.atan2(-x, z);
+		loc.setYaw((float) FastMath.toDegrees((theta + _2PI) % _2PI));
+
+		double x2 = NumberConversions.square(x);
+		double z2 = NumberConversions.square(z);
+		double xz = FastMath.sqrt(x2 + z2);
+		loc.setPitch((float) FastMath.toDegrees(FastMath.atan(-v.getY() / xz)));
+
+		return loc;
+	}
+
 	private void playIntermediateEffects(Location old, Vector movement) {
 		int divideFactor = intermediateEffects + 1;
 		Vector v = movement.clone();
@@ -420,7 +468,7 @@ public class ProjectileTracker implements Runnable {
 		v.setZ(v.getZ() / divideFactor);
 
 		for (int i = 0; i < intermediateEffects; i++) {
-			old = old.add(v).setDirection(v);
+			old = setDirection(old.add(v), v);
 			if (spell != null && specialEffectInterval > 0 && counter % specialEffectInterval == 0) spell.playEffects(EffectPosition.SPECIAL, old);
 		}
 	}
@@ -434,7 +482,7 @@ public class ProjectileTracker implements Runnable {
 		v.setZ(v.getZ() / divideFactor);
 
 		for (int i = 0; i < intermediateHitboxes; i++) {
-			old = old.add(v).setDirection(v);
+			old = setDirection(old.add(v), v);
 			checkHitbox(old);
 		}
 	}
@@ -451,11 +499,10 @@ public class ProjectileTracker implements Runnable {
 		double y = verticalHitRadius / 2D;
 		double z = horizontalHitRadius / 2D;
 
-		for (Entity entity : currentLoc.getWorld().getNearbyEntities(currentLoc, x, y, z)) {
-			if (!(entity instanceof LivingEntity)) continue;
+		for (LivingEntity entity : currentLoc.getWorld().getNearbyLivingEntities(currentLoc, x, y, z)) {
 			if (!targetList.canTarget(caster, entity)) continue;
 			if (immune.contains(entity)) continue;
-			inRange.add((LivingEntity) entity);
+			inRange.add(entity);
 		}
 
 		for (int i = 0; i < inRange.size(); i++) {
@@ -515,6 +562,11 @@ public class ProjectileTracker implements Runnable {
 		if (armorStandSet != null) {
 			for (ArmorStand armorStand : armorStandSet) {
 				armorStand.remove();
+			}
+		}
+		if (entitySet != null) {
+			for (Entity entity : entitySet) {
+				entity.remove();
 			}
 		}
 		caster = null;
@@ -683,6 +735,14 @@ public class ProjectileTracker implements Runnable {
 
 	public void setGroundMaterials(Set<Material> groundMaterials) {
 		this.groundMaterials = groundMaterials;
+	}
+
+	public Set<Material> getDisallowedGroundMaterials() {
+		return disallowedGroundMaterials;
+	}
+
+	public void setDisallowedGroundMaterials(Set<Material> disallowedGroundMaterials) {
+		this.disallowedGroundMaterials = disallowedGroundMaterials;
 	}
 
 	public ValidTargetList getTargetList() {

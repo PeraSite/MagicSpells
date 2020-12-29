@@ -105,9 +105,7 @@ public class InventoryUtil {
 		ItemStack[] equipment = new ItemStack[6];
 
 		// first 4 slots are filled with armor
-		for (int j = 0; j < 4; j++) {
-			equipment[j] = armorContents[j];
-		}
+		System.arraycopy(armorContents, 0, equipment, 0, 4);
 		equipment[4] = mainHand;
 		equipment[5] = offHand;
 
@@ -127,11 +125,11 @@ public class InventoryUtil {
 		if (itemData == null) return false;
 		int count = 0;
 		ItemStack[] items = inventory.getContents();
-		for (int i = 0; i < 36; i++) {
-			if (items[i] == null) continue;
-			MagicItemData magicItemData = MagicItems.getMagicItemDataFromItemStack(items[i]);
+		for (ItemStack itemStack : items) {
+			if (itemStack == null) continue;
+			MagicItemData magicItemData = MagicItems.getMagicItemDataFromItemStack(itemStack);
 			if (magicItemData == null) continue;
-			if (magicItemData.equals(itemData)) count += items[i].getAmount();
+			if (magicItemData.equals(itemData)) count += itemStack.getAmount();
 			if (count >= item.getAmount()) return true;
 		}
 		return false;
@@ -144,9 +142,7 @@ public class InventoryUtil {
 		ItemStack[] equipment = new ItemStack[6];
 
 		// first 4 slots are filled with armor
-		for (int j = 0; j < 4; j++) {
-			equipment[j] = armorContents[j];
-		}
+		System.arraycopy(armorContents, 0, equipment, 0, 4);
 		equipment[4] = mainHand;
 		equipment[5] = offHand;
 

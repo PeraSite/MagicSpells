@@ -17,6 +17,8 @@ public class GripSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 	private float yOffset;
 	private float locationOffset;
 
+	private boolean checkGround;
+
 	private Vector relativeOffset;
 
 	private String strCantGrip;
@@ -26,6 +28,8 @@ public class GripSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 
 		yOffset = getConfigFloat("y-offset", 0);
 		locationOffset = getConfigFloat("location-offset", 0);
+
+		checkGround = getConfigBoolean("check-ground", true);
 
 		relativeOffset = getConfigVector("relative-offset", "1,1,0");
 
@@ -80,7 +84,7 @@ public class GripSpell extends TargetedSpell implements TargetedEntitySpell, Tar
 		loc.add(loc.getDirection().clone().multiply(relativeOffset.getX()));
 		loc.setY(loc.getY() + relativeOffset.getY());
 
-		if (!BlockUtils.isPathable(loc.getBlock())) return false;
+		if (checkGround && !BlockUtils.isPathable(loc.getBlock())) return false;
 
 		playSpellEffects(EffectPosition.TARGET, target);
 		playSpellEffectsTrail(from, loc);

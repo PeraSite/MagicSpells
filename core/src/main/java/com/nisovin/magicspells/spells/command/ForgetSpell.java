@@ -112,7 +112,6 @@ public class ForgetSpell extends CommandSpell {
 			}
 
 			targetSpellbook.removeAllSpells();
-			targetSpellbook.addGrantedSpells();
 			targetSpellbook.save();
 
 			if (!player.equals(target)) {
@@ -131,12 +130,12 @@ public class ForgetSpell extends CommandSpell {
 	public boolean castFromConsole(CommandSender sender, String[] args) {
 		if (args == null || args.length != 2) {
 			sender.sendMessage(strUsage);
-			return true;
+			return false;
 		}
 		Player target = PlayerNameUtils.getPlayer(args[0]);
 		if (target == null) {
 			sender.sendMessage(strNoTarget);
-			return true;
+			return false;
 		}
 		Spell spell = null;
 		boolean all = false;
@@ -145,18 +144,18 @@ public class ForgetSpell extends CommandSpell {
 
 		if (spell == null && !all) {
 			sender.sendMessage(strNoSpell);
-			return true;
+			return false;
 		}
 
 		Spellbook targetSpellbook = MagicSpells.getSpellbook(target);
 		if (targetSpellbook == null || (!all && !targetSpellbook.hasSpell(spell))) {
 			sender.sendMessage(strDoesntKnow);
-			return true;
+			return false;
 		}
 
 		SpellForgetEvent forgetEvent = new SpellForgetEvent(spell, target);
 		EventUtil.call(forgetEvent);
-		if (forgetEvent.isCancelled()) return true;
+		if (forgetEvent.isCancelled()) return false;
 		if (!all) {
 			targetSpellbook.removeSpell(spell);
 			targetSpellbook.save();
@@ -164,7 +163,6 @@ public class ForgetSpell extends CommandSpell {
 			sender.sendMessage(formatMessage(strCastSelf, "%a", getConsoleName(), "%s", spell.getName(), "%t", target.getDisplayName()));
 		} else {
 			targetSpellbook.removeAllSpells();
-			targetSpellbook.addGrantedSpells();
 			targetSpellbook.save();
 			sender.sendMessage(formatMessage(strResetTarget, "%t", target.getDisplayName()));
 		}

@@ -148,7 +148,7 @@ public class VinesSpell extends TargetedSpell {
 		protected void onTick(int tick) {
 			VineBlock block = blocks.pollFirst();
 			if (block != null) setBlockToVine(block.block, face);
-			else this.stop();
+			else this.stop(true);
 		}
 		
 	}

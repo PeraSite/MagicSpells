@@ -18,7 +18,7 @@ buildscript {
     }
   }
   dependencies {
-    classpath "com.github.jengelman.gradle.plugins:shadow:4.0.4"
+    classpath "com.github.jengelman.gradle.plugins:shadow:6.0.0"
     classpath "de.undercouch:gradle-download-task:3.4.2"
     classpath "com.sarhanm:gradle-versioner:2.4.0"
   }
@@ -77,36 +77,29 @@ subprojects {
   apply plugin: "java"
   apply plugin: "com.github.johnrengelman.shadow"
   apply plugin: "maven-publish"
+
   repositories {
     flatDir {
       dirs(rootDir.path + "/lib")
     }
+
     jcenter()
     mavenCentral()
-    maven {
-      url "https://hub.spigotmc.org/nexus/content/repositories/snapshots"
-    }
-    maven {
-      url "https://oss.sonatype.org/content/repositories/snapshots"
-    }
-    maven {
-      url "https://repo.codemc.org/repository/maven-public"
-    }
-    maven {
-      url "https://cdn.rawgit.com/Rayzr522/maven-repo/master/"
-    }
-    maven {
-      url "http://maven.sk89q.com/repo/"
-    }
-    maven {
-      url "https://jitpack.io"
-    }
+
+    maven { url "https://hub.spigotmc.org/nexus/content/repositories/snapshots" }
+    maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
+    maven { url "https://repo.codemc.org/repository/maven-public" }
+    maven { url "https://cdn.rawgit.com/Rayzr522/maven-repo/master/" }
+    maven { url "https://maven.sk89q.com/repo/" }
+    maven { url "https://jitpack.io" }
   }
-  it.version = "4.0-Beta-7"
+
+  it.version = "4.0-Beta-9"
   
   processResources {
-    expand(["version": "4.0-Beta-7"])
+    expand(["version": "4.0-Beta-9"])
   }
+
   shadowJar {
     configurations = [project.configurations.shadow]
   }

@@ -56,7 +56,7 @@ public class MultiCondition extends Condition implements IModifier {
 	private PassCondition passCondition = PassCondition.ALL;
 	
 	@Override
-	public boolean setVar(String var) {
+	public boolean initialize(String var) {
 		configPrefix += var;
 		MagicConfig config = MagicSpells.plugin.getMagicConfig();
 		if (!(config.contains(configPrefix) && config.isSection(configPrefix))) return false;
@@ -76,8 +76,10 @@ public class MultiCondition extends Condition implements IModifier {
 		
 		modifiers = new ArrayList<>();
 		for (String modString : modifierStrings) {
-			Modifier m = Modifier.factory(modString);
-			if (m != null) modifiers.add(m);
+			Modifier m = new Modifier();
+			m.process(modString);
+
+			if (m.isInitialized()) modifiers.add(m);
 			else MagicSpells.error("Problem in reading predefined modifier: \"" + modString + "\" from \"" + var + '\"');
 		}
 		

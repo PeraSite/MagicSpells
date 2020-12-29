@@ -78,8 +78,10 @@ public class DisguiseSpell extends BuffSpell {
 		watcher.setGlowing(glowing);
 
 		if (watcher instanceof AbstractHorseWatcher) {
-			((AbstractHorseWatcher) watcher).setCarryingChest(entityData.isChested());
 			((AbstractHorseWatcher) watcher).setSaddled(entityData.isSaddled());
+			if (watcher instanceof MuleWatcher) {
+				((MuleWatcher) watcher).setCarryingChest(entityData.isChested());
+			}
 			if (watcher instanceof HorseWatcher) {
 				((HorseWatcher) watcher).setColor(entityData.getHorseColor());
 				((HorseWatcher) watcher).setStyle(entityData.getHorseStyle());

@@ -8,21 +8,23 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.function.Predicate;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.*;
+import org.bukkit.entity.Entity;
 import org.bukkit.inventory.*;
 import org.bukkit.util.Vector;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.inventory.meta.Damageable;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import com.nisovin.magicspells.MagicSpells;
 import com.nisovin.magicspells.handlers.DebugHandler;
@@ -31,11 +33,15 @@ import com.nisovin.magicspells.util.magicitems.MagicItems;
 import com.nisovin.magicspells.handlers.PotionEffectHandler;
 import com.nisovin.magicspells.util.magicitems.MagicItemData;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
+import com.destroystokyo.paper.profile.ProfileProperty;
+
 import org.apache.commons.math3.util.FastMath;
+import org.jetbrains.annotations.Nullable;
 
 public class Util {
 
-	private static Random random = new Random();
+	private static Random random = ThreadLocalRandom.current();
 
 	public static int getRandomInt(int bound) {
 		return random.nextInt(bound);
@@ -126,7 +132,7 @@ public class Util {
 	// Just checks to see if the passed string could be lore data
 	public static boolean isLoreData(String line) {
 		if (line == null) return false;
-		line = ChatColor.stripColor(line);
+		line = decolorize(line);
 		return line.startsWith("MS$:");
 	}
 
@@ -159,7 +165,7 @@ public class Util {
 		if (lore.isEmpty()) return null;
 
 		for (int i = 0; i < lore.size(); i++) {
-			String s = ChatColor.stripColor(lore.get(lore.size() - 1));
+			String s = decolorize(lore.get(lore.size() - 1));
 			if (s.startsWith("MS$:")) return s.substring(4);
 		}
 
@@ -176,7 +182,7 @@ public class Util {
 
 		boolean removed = false;
 		for (int i = 0; i < lore.size(); i++) {
-			String s = ChatColor.stripColor(lore.get(i));
+			String s = decolorize(lore.get(i));
 			if (!s.startsWith("MS$:")) continue;
 			lore.remove(i);
 			removed = true;
@@ -188,35 +194,6 @@ public class Util {
 			else meta.setLore(null);
 			item.setItemMeta(meta);
 		}
-	}
-
-	static Map<String, EntityType> entityTypeMap = new HashMap<>();
-	static {
-		for (EntityType type : EntityType.values()) {
-			if (type != null && type.getName() != null) {
-				entityTypeMap.put(type.getName().toLowerCase(), type);
-				entityTypeMap.put(type.name().toLowerCase(), type);
-				entityTypeMap.put(type.name().toLowerCase().replace("_", ""), type);
-			}
-		}
-		entityTypeMap.put("zombiepig", Util.getPigmanEntityType());
-		entityTypeMap.put("mooshroom", EntityType.MUSHROOM_COW);
-		entityTypeMap.put("cat", EntityType.OCELOT);
-		entityTypeMap.put("golem", EntityType.IRON_GOLEM);
-		entityTypeMap.put("snowgolem", EntityType.SNOWMAN);
-		entityTypeMap.put("dragon", EntityType.ENDER_DRAGON);
-		Map<String, EntityType> toAdd = new HashMap<>();
-		for (Map.Entry<String, EntityType> entry : entityTypeMap.entrySet()) {
-			toAdd.put(entry.getKey() + 's', entry.getValue());
-		}
-		entityTypeMap.putAll(toAdd);
-		entityTypeMap.put("endermen", EntityType.ENDERMAN);
-		entityTypeMap.put("wolves", EntityType.WOLF);
-	}
-
-	public static EntityType getEntityType(String type) {
-		if (type.equalsIgnoreCase("player")) return EntityType.PLAYER;
-		return entityTypeMap.get(type.toLowerCase());
 	}
 
 	public static PotionEffectType getPotionEffectType(String type) {
@@ -345,11 +322,6 @@ public class Util {
 		return splitParams(arrayJoin(split, ' '), 0);
 	}
 
-	public static int getItemDurability(ItemStack item) {
-		ItemMeta meta = item.getItemMeta();
-		return meta == null ? 0 : ((Damageable) meta).getDamage();
-	}
-
 	public static boolean removeFromInventory(Inventory inventory, SpellReagents.ReagentItem item) {
 		MagicItemData itemData = MagicItems.getMagicItemDataFromItemStack(item.getItemStack());
 		if (itemData == null) return false;
@@ -389,9 +361,7 @@ public class Util {
 		int amt = item.getAmount();
 		ItemStack[] armorContents = entityEquipment.getArmorContents();
 		ItemStack[] items = new ItemStack[6];
-		for (int i = 0; i < 4; i++) {
-			items[i] = armorContents[i];
-		}
+		System.arraycopy(armorContents, 0, items, 0, 4);
 		items[4] = entityEquipment.getItemInMainHand();
 		items[5] = entityEquipment.getItemInOffHand();
 
@@ -417,9 +387,7 @@ public class Util {
 
 		if (amt == 0) {
 			ItemStack[] updatedArmorContents = new ItemStack[4];
-			for (int i = 0; i < 4; i++) {
-				updatedArmorContents[i] = items[i];
-			}
+			System.arraycopy(items, 0, updatedArmorContents, 0, 4);
 			entityEquipment.setArmorContents(updatedArmorContents);
 			entityEquipment.setItemInMainHand(items[4]);
 			entityEquipment.setItemInOffHand(items[5]);
@@ -435,19 +403,19 @@ public class Util {
 		int amt = item.getAmount();
 		ItemStack[] items = Arrays.copyOf(inventory.getContents(), inventory.getSize());
 		if (stackExisting) {
-			for (int i = 0; i < items.length; i++) {
-				if (items[i] == null) continue;
-				MagicItemData magicItemData = MagicItems.getMagicItemDataFromItemStack(items[i]);
+			for (ItemStack itemStack : items) {
+				if (itemStack == null) continue;
+				MagicItemData magicItemData = MagicItems.getMagicItemDataFromItemStack(itemStack);
 				if (magicItemData == null) continue;
 				if (!magicItemData.equals(itemData)) continue;
 
-				if (items[i].getAmount() + amt <= items[i].getMaxStackSize()) {
-					items[i].setAmount(items[i].getAmount() + amt);
+				if (itemStack.getAmount() + amt <= itemStack.getMaxStackSize()) {
+					itemStack.setAmount(itemStack.getAmount() + amt);
 					amt = 0;
 					break;
 				} else {
-					int diff = items[i].getMaxStackSize() - items[i].getAmount();
-					items[i].setAmount(items[i].getMaxStackSize());
+					int diff = itemStack.getMaxStackSize() - itemStack.getAmount();
+					itemStack.setAmount(itemStack.getMaxStackSize());
 					amt -= diff;
 				}
 			}
@@ -543,13 +511,6 @@ public class Util {
 		}
 	}
 
-	public static ItemStack getEggItemForEntityType(EntityType type) {
-		Material eggMaterial = Material.getMaterial(type.name() + "_SPAWN_EGG");
-		if (eggMaterial == null) return null;
-
-		return new ItemStack(eggMaterial);
-	}
-
 	private static Map<String, String> uniqueIds = new HashMap<>();
 
 	public static String getUniqueId(Player player) {
@@ -597,7 +558,7 @@ public class Util {
 
 	public static <C extends Collection<Material>> C getMaterialList(List<String> strings, Supplier<C> supplier) {
 		C ret = supplier.get();
-		strings.forEach(string -> ret.add(Util.getMaterial(string)));
+		strings.forEach(string -> ret.add(getMaterial(string)));
 		return ret;
 	}
 
@@ -649,6 +610,22 @@ public class Util {
 		double y = location.getY();
 		double z = location.getZ();
 
+		float yaw = location.getYaw();
+		float pitch = location.getPitch();
+
+		if (Float.isNaN(yaw)) yaw = 0.0F;
+		if (Float.isNaN(pitch)) pitch = 0.0F;
+
+		if (Float.isInfinite(yaw)) {
+			boolean negative = (yaw < 0.0F);
+			yaw = negative ? -1F : 1F;
+		}
+
+		if (Float.isInfinite(pitch)) {
+			boolean negative = (pitch < 0.0F);
+			pitch = negative ? -1F : 1F;
+		}
+
 		if (Double.isNaN(x)) x = 0.0D;
 		if (Double.isNaN(y)) y = 0.0D;
 		if (Double.isNaN(z)) z = 0.0D;
@@ -668,7 +645,7 @@ public class Util {
 			z = negative ? -1 : 1;
 		}
 
-		return new Location(location.getWorld(), x, y, z, location.getYaw(), location.getPitch());
+		return new Location(location.getWorld(), x, y, z, yaw, pitch);
 	}
 
 	public static Vector getVector(String str) {
@@ -677,19 +654,15 @@ public class Util {
 	}
 
 	public static String colorize(String string) {
-		return MagicSpells.getVolatileCodeHandler().colorize(ChatColor.translateAlternateColorCodes('&', string));
+		return MagicSpells.getVolatileCodeHandler().colorize(string);
+	}
+
+	public static String decolorize(String string) {
+		return ChatColor.stripColor(colorize(string));
 	}
 
 	public static String doVarReplacementAndColorize(Player player, String string) {
 		return colorize(MagicSpells.doVariableReplacements(player, string));
-	}
-
-	public static EntityType getPigmanEntityType() {
-		try {
-			return EntityType.valueOf("ZOMBIFIED_PIGLIN");
-		} catch (IllegalArgumentException ex) {
-			return EntityType.valueOf("PIG_ZOMBIE");
-		}
 	}
 
 	public static void setInventoryTitle(Player player, String title) {
@@ -697,4 +670,54 @@ public class Util {
 		MagicSpells.getVolatileCodeHandler().setInventoryTitle(player, title);
 	}
 
+	public static PlayerProfile setTexture(PlayerProfile profile, String texture, String signature) {
+		if (signature == null || signature.isEmpty()) profile.setProperty(new ProfileProperty("textures", texture));
+		else profile.setProperty(new ProfileProperty("textures", texture, signature));
+		return profile;
+	}
+
+	public static String getSkinData(Player player) {
+		List<ProfileProperty> skins = player.getPlayerProfile().getProperties().stream().filter(prop -> prop.getName().equals("textures")).collect(Collectors.toList());
+		ProfileProperty latestSkin = skins.get(0);
+		return "Skin: " + latestSkin.getValue() + "\nSignature: " + latestSkin.getSignature();
+	}
+
+	public static void setTexture(SkullMeta meta, String texture, String signature) {
+		PlayerProfile profile = meta.getPlayerProfile();
+		setTexture(profile, texture, signature);
+		meta.setPlayerProfile(profile);
+	}
+
+	public static void setSkin(Player player, String skin, String signature) {
+		setTexture(player.getPlayerProfile(), skin, signature);
+	}
+
+	public static void setTexture(SkullMeta meta, String texture, String signature, String uuid, OfflinePlayer offlinePlayer) {
+		try {
+			PlayerProfile profile;
+			if (uuid != null) profile = Bukkit.createProfile(UUID.fromString(uuid), offlinePlayer.getName());
+			else profile = Bukkit.createProfile(null, offlinePlayer.getName());
+			setTexture(profile, texture, signature);
+			meta.setPlayerProfile(profile);
+		} catch (SecurityException | IllegalArgumentException e) {
+			MagicSpells.handleException(e);
+		}
+	}
+
+	@Nullable
+	public static Entity getNearestEntity(Entity entity, double range, @Nullable Predicate<Entity> predicate) {
+		Entity nearestEntity = null;
+		double nearestDistance = range * range;
+		for (Entity nextEntity : entity.getNearbyEntities(range, range, range)) {
+			if (predicate != null && !predicate.test(nextEntity)) {
+				continue;
+			}
+			double distance = entity.getLocation().distanceSquared(nextEntity.getLocation());
+			if (distance < nearestDistance) {
+				nearestDistance = distance;
+				nearestEntity = nextEntity;
+			}
+		}
+		return nearestEntity;
+	}
 }

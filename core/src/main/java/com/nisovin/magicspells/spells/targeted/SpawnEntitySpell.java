@@ -4,13 +4,17 @@ import java.util.Set;
 import java.util.List;
 import java.util.Random;
 import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 
+import com.destroystokyo.paper.entity.ai.MobGoals;
+import com.nisovin.magicspells.util.ai.LookAtEntityGoal;
+import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.Material;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.block.Block;
 import org.bukkit.entity.*;
+import org.bukkit.block.Block;
 import org.bukkit.event.Listener;
 import org.bukkit.block.BlockFace;
 import org.bukkit.event.HandlerList;
@@ -27,6 +31,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import com.nisovin.magicspells.Subspell;
 import com.nisovin.magicspells.util.Util;
 import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.util.MobUtil;
 import com.nisovin.magicspells.util.BlockUtils;
 import com.nisovin.magicspells.util.EntityData;
 import com.nisovin.magicspells.util.TargetInfo;
@@ -84,7 +89,7 @@ public class SpawnEntitySpell extends TargetedSpell implements TargetedLocationS
 	private List<PotionEffect> potionEffects;
 	private Set<AttributeManager.AttributeInfo> attributes;
 
-	private Random random = new Random();
+	private Random random = ThreadLocalRandom.current();
 	
 	// DEBUG INFO: level 2, invalid potion effect on internalname spell data
 	public SpawnEntitySpell(MagicConfig config, String spellName) {
@@ -350,12 +355,20 @@ public class SpawnEntitySpell extends TargetedSpell implements TargetedLocationS
 		if (attributes != null) MagicSpells.getAttributeManager().addEntityAttributes(entity, attributes);
 
 		if (removeAI) {
-			entity.setAI(false);
-			if (addLookAtPlayerAI) MagicSpells.getVolatileCodeHandler().addAILookAtPlayer(entity, 10);
+			if (addLookAtPlayerAI) {
+				if (entity instanceof Mob) {
+					Mob mob = (Mob) entity;
+					MobGoals mobGoals = Bukkit.getMobGoals();
+					mobGoals.removeAllGoals(mob);
+					mobGoals.addGoal(mob, 1, new LookAtEntityGoal(mob, HumanEntity.class, 10.0F, 1.0F));
+				}
+			} else {
+				entity.setAI(false);
+			}
 		}
 		if (noAI) entity.setAI(false);
 
-		if (target != null) MagicSpells.getVolatileCodeHandler().setTarget(entity, target);
+		if (target != null) MobUtil.setTarget(entity, target);
 		if (targetInterval > 0) new Targeter(caster, entity);
 
 		if (attackSpell != null) {
@@ -504,7 +517,7 @@ public class SpawnEntitySpell extends TargetedSpell implements TargetedLocationS
 			}
 			target = t;
 			if (t == null) return;
-			MagicSpells.getVolatileCodeHandler().setTarget(monster, t);
+			MobUtil.setTarget(monster, t);
 		}
 		
 	}
@@ -538,7 +551,7 @@ public class SpawnEntitySpell extends TargetedSpell implements TargetedLocationS
 
 			if (targetable.isEmpty()) return;
 			LivingEntity target = targetable.get(random.nextInt(targetable.size()));
-			MagicSpells.getVolatileCodeHandler().setTarget(entity, target);
+			MobUtil.setTarget(entity, target);
 		}
 		
 	}

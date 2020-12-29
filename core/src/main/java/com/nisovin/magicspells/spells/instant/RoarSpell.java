@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.LivingEntity;
 
 import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.util.MobUtil;
 import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.spells.InstantSpell;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
@@ -40,7 +41,7 @@ public class RoarSpell extends InstantSpell {
 				if (!(entity instanceof LivingEntity)) continue;
 				if (entity instanceof Player) continue;
 				if (!validTargetList.canTarget(livingEntity, entity)) continue;
-				MagicSpells.getVolatileCodeHandler().setTarget((LivingEntity) entity, livingEntity);
+				MobUtil.setTarget((LivingEntity) entity, livingEntity);
 				playSpellEffectsTrail(livingEntity.getLocation(), entity.getLocation());
 				playSpellEffects(EffectPosition.TARGET, entity);
 				count++;

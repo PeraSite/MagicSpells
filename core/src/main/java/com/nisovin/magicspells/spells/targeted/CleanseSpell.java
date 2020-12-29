@@ -28,6 +28,7 @@ public class CleanseSpell extends TargetedSpell implements TargetedEntitySpell {
 	private List<DotSpell> dotSpells;
 	private List<StunSpell> stunSpells;
 	private List<BuffSpell> buffSpells;
+	private List<OrbitSpell> orbitSpells;
 	private List<SilenceSpell> silenceSpells;
 	private List<LevitateSpell> levitateSpells;
 	private List<PotionEffectType> potionEffectTypes;
@@ -41,6 +42,7 @@ public class CleanseSpell extends TargetedSpell implements TargetedEntitySpell {
 		dotSpells = new ArrayList<>();
 		stunSpells = new ArrayList<>();
 		buffSpells = new ArrayList<>();
+		orbitSpells = new ArrayList<>();
 		silenceSpells = new ArrayList<>();
 		levitateSpells = new ArrayList<>();
 		potionEffectTypes = new ArrayList<>();
@@ -93,6 +95,18 @@ public class CleanseSpell extends TargetedSpell implements TargetedEntitySpell {
 				continue;
 			}
 
+			if (s.startsWith("orbit:")) {
+				if (s.replace("orbit:", "").equalsIgnoreCase("*")) {
+					for (Spell spell : MagicSpells.getSpellsOrdered()) {
+						if (spell instanceof OrbitSpell) orbitSpells.add((OrbitSpell) spell);
+					}
+					continue;
+				}
+				Spell spell = MagicSpells.getSpellByInternalName(s.replace("orbit:", ""));
+				if (spell instanceof OrbitSpell) orbitSpells.add((OrbitSpell) spell);
+				continue;
+			}
+
 			if (s.startsWith("silence:")) {
 				if (s.replace("silence:", "").equalsIgnoreCase("*")) {
 					for (Spell spell : MagicSpells.getSpellsOrdered()) {
@@ -138,6 +152,10 @@ public class CleanseSpell extends TargetedSpell implements TargetedEntitySpell {
 
 			for (StunSpell spell : stunSpells) {
 				if (spell.isStunned(entity)) return true;
+			}
+
+			for (OrbitSpell spell : orbitSpells) {
+				if (spell.hasOrbit(entity)) return true;
 			}
 
 			for (SilenceSpell spell : silenceSpells) {
@@ -188,13 +206,14 @@ public class CleanseSpell extends TargetedSpell implements TargetedEntitySpell {
 		if (fire) target.setFireTicks(0);
 
 		for (PotionEffectType type : potionEffectTypes) {
-			target.addPotionEffect(new PotionEffect(type, 0, 0, true), true);
+			target.addPotionEffect(new PotionEffect(type, 0, 0, true));
 			target.removePotionEffect(type);
 		}
 
 		buffSpells.forEach(spell -> spell.turnOff(target));
 		dotSpells.forEach(spell -> spell.cancelDot(target));
 		stunSpells.forEach(spell -> spell.removeStun(target));
+		orbitSpells.forEach(spell -> spell.removeOrbits(target));
 		silenceSpells.forEach(spell -> spell.removeSilence(target));
 		levitateSpells.forEach(spell -> spell.removeLevitate(target));
 

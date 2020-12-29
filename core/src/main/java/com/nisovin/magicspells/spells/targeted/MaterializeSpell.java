@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.HashSet;
 import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Effect;
 import org.bukkit.Location;
@@ -66,7 +67,7 @@ public class MaterializeSpell extends TargetedSpell implements TargetedLocationS
 	//Cuboid Checks;
 	private boolean hasMiddle;
 
-	private Random rand = new Random();
+	private Random rand = ThreadLocalRandom.current();
 
 	public MaterializeSpell(MagicConfig config, String spellName) {
 		super(config, spellName);

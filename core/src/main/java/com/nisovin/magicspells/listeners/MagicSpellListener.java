@@ -8,14 +8,16 @@ import org.bukkit.entity.ArmorStand;
 import org.bukkit.event.EventHandler;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 
 import com.nisovin.magicspells.Perm;
 import com.nisovin.magicspells.Spell;
 import com.nisovin.magicspells.MagicSpells;
 import com.nisovin.magicspells.events.SpellTargetEvent;
 import com.nisovin.magicspells.zones.NoMagicZoneManager;
-import com.nisovin.magicspells.spelleffects.ArmorStandEffect;
 import com.nisovin.magicspells.events.ParticleProjectileHitEvent;
+import com.nisovin.magicspells.spelleffects.effecttypes.EntityEffect;
+import com.nisovin.magicspells.spelleffects.effecttypes.ArmorStandEffect;
 
 public class MagicSpellListener implements Listener {
 
@@ -27,7 +29,7 @@ public class MagicSpellListener implements Listener {
 
 	@EventHandler
 	public void onSpellTarget(SpellTargetEvent event) {
-		// Check if target has noTarget permission / spectator gamemode / is in noMagicZone
+		// Check if target has noTarget permission / spectator gamemode / is in noMagicZone / is an invisible marker armorstand
 		LivingEntity target = event.getTarget();
 		Spell spell = event.getSpell();
 		if (target == null) return;
@@ -35,7 +37,8 @@ public class MagicSpellListener implements Listener {
 		if (Perm.NOTARGET.has(target)) event.setCancelled(true);
 		if (target instanceof Player && ((Player) target).getGameMode() == GameMode.SPECTATOR) event.setCancelled(true);
 		if (spell != null && noMagicZoneManager != null && noMagicZoneManager.willFizzle(target, spell)) event.setCancelled(true);
-		if (target instanceof ArmorStand && target.getScoreboardTags().contains(ArmorStandEffect.ENTITY_TAG)) event.setCancelled(true);
+		if (isMSEntity(target)) event.setCancelled(true);
+		if (target instanceof ArmorStand && target.isInvisible() && ((ArmorStand) target).isMarker()) event.setCancelled(true);
 	}
 
 	@EventHandler
@@ -44,17 +47,28 @@ public class MagicSpellListener implements Listener {
 		LivingEntity target = event.getTarget();
 
 		if (target == null) return;
-		if (target instanceof ArmorStand && target.getScoreboardTags().contains(ArmorStandEffect.ENTITY_TAG)) event.setCancelled(true);
+		if (isMSEntity(target)) event.setCancelled(true);
 	}
 
 	@EventHandler
 	public void onChunkLoad(ChunkLoadEvent event) {
-		// remove armor stands in unloaded chunks
+		// remove entities in unloaded chunks
 		for (Entity entity : event.getChunk().getEntities()) {
-			if (!(entity instanceof ArmorStand)) continue;
-			if (!entity.getScoreboardTags().contains(ArmorStandEffect.ENTITY_TAG)) continue;
+			if (!isMSEntity(entity)) continue;
 			entity.remove();
 		}
+	}
+
+	@EventHandler
+	public void onEntityDamage(EntityDamageEvent event) {
+		Entity entity = event.getEntity();
+		if (entity == null) return;
+		if (!isMSEntity(entity)) return;
+		event.setCancelled(true);
+	}
+
+	private boolean isMSEntity(Entity entity) {
+		return entity.getScoreboardTags().contains(ArmorStandEffect.ENTITY_TAG) || entity.getScoreboardTags().contains(EntityEffect.ENTITY_TAG);
 	}
 
 }

@@ -61,6 +61,7 @@ public class ParticleProjectileSpell extends InstantSpell implements TargetedLoc
 	private int groundHitRadius;
 	private int groundVerticalHitRadius;
 	private Set<Material> groundMaterials;
+	private Set<Material> disallowedGroundMaterials;
 
 	private double maxDuration;
 	private double maxDistanceSquared;
@@ -175,6 +176,16 @@ public class ParticleProjectileSpell extends InstantSpell implements TargetedLoc
 				groundMaterials.add(material);
 			}
 		}
+		disallowedGroundMaterials = new HashSet<>();
+		List<String> disallowedGroundMaterialNames = getConfigStringList("disallowed-ground-materials", null);
+		if (disallowedGroundMaterialNames != null) {
+			for (String str : disallowedGroundMaterialNames) {
+				Material material = Util.getMaterial(str);
+				if (material == null) continue;
+				if (!material.isBlock()) continue;
+				disallowedGroundMaterials.add(material);
+			}
+		}
 
 		hugSurface = getConfigBoolean("hug-surface", false);
 		if (hugSurface) heightFromSurface = getConfigFloat("height-from-surface", 0.6F);
@@ -213,6 +224,16 @@ public class ParticleProjectileSpell extends InstantSpell implements TargetedLoc
 		durationSpellName = getConfigString("spell-on-duration-end", defaultSpellName);
 		modifierSpellName = getConfigString("spell-on-modifier-fail", defaultSpellName);
 		entityLocationSpellName = getConfigString("spell-on-entity-location", "");
+	}
+
+	@Override
+	public void initializeModifiers() {
+		super.initializeModifiers();
+
+		if (projModifiersStrings != null && !projModifiersStrings.isEmpty()) {
+			projModifiers = new ModifierSet(projModifiersStrings);
+			projModifiersStrings = null;
+		}
 	}
 
 	@Override
@@ -271,11 +292,6 @@ public class ParticleProjectileSpell extends InstantSpell implements TargetedLoc
 		if (!entityLocationSpell.process() || !entityLocationSpell.isTargetedLocationSpell()) {
 			if (!entityLocationSpellName.isEmpty()) MagicSpells.error("ParticleProjectileSpell '" + internalName + "' has an invalid spell-on-entity-location defined!");
 			entityLocationSpell = null;
-		}
-
-		if (projModifiersStrings != null && !projModifiersStrings.isEmpty()) {
-			projModifiers = new ModifierSet(projModifiersStrings);
-			projModifiersStrings = null;
 		}
 
 		if (interactions != null && !interactions.isEmpty()) {
@@ -403,6 +419,10 @@ public class ParticleProjectileSpell extends InstantSpell implements TargetedLoc
 		return playSpellEffectLibEffects(position, location);
 	}
 
+	public Set<Entity> playEntityEffectsProjectile(EffectPosition position, Location location) {
+		return playSpellEntityEffects(position, location);
+	}
+
 	public Set<ArmorStand> playArmorStandEffectsProjectile(EffectPosition position, Location location) {
 		return playSpellArmorStandEffects(position, location);
 	}
@@ -444,6 +464,7 @@ public class ParticleProjectileSpell extends InstantSpell implements TargetedLoc
 		tracker.setGroundHorizontalHitRadius(groundHitRadius);
 		tracker.setGroundVerticalHitRadius(groundVerticalHitRadius);
 		tracker.setGroundMaterials(groundMaterials);
+		tracker.setDisallowedGroundMaterials(disallowedGroundMaterials);
 
 		tracker.setHugSurface(hugSurface);
 		tracker.setHeightFromSurface(heightFromSurface);

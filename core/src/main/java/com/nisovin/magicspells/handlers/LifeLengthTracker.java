@@ -17,8 +17,8 @@ import com.nisovin.magicspells.util.TimeUtil;
 
 public class LifeLengthTracker implements Listener {
 
-	private Map<String, Long> lastSpawn = new HashMap<>();
-	private Map<String, Integer> lastLifeLength = new HashMap<>();
+	private final Map<String, Long> lastSpawn = new HashMap<>();
+	private final Map<String, Integer> lastLifeLength = new HashMap<>();
 	
 	public LifeLengthTracker() {
 		Util.forEachPlayerOnline(player -> lastSpawn.put(player.getName(), System.currentTimeMillis()));
@@ -26,11 +26,10 @@ public class LifeLengthTracker implements Listener {
 	}
 	
 	public int getCurrentLifeLength(Player player) {
-		if (lastSpawn.containsKey(player.getName())) {
-			long spawn = lastSpawn.get(player.getName());
-			return (int) ((System.currentTimeMillis() - spawn) / TimeUtil.MILLISECONDS_PER_SECOND);
-		}
-		return 0;
+		if (!lastSpawn.containsKey(player.getName())) return 0;
+
+		long spawn = lastSpawn.get(player.getName());
+		return (int) ((System.currentTimeMillis() - spawn) / TimeUtil.MILLISECONDS_PER_SECOND);
 	}
 	
 	public int getLastLifeLength(Player player) {

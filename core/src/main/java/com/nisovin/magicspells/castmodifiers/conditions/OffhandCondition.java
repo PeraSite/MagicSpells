@@ -21,7 +21,7 @@ public class OffhandCondition extends Condition {
 	private boolean[] checkName;
 	
 	@Override
-	public boolean setVar(String var) {
+	public boolean initialize(String var) {
 		try {
 			String[] vardata = var.split(",");
 			ids = new Material[vardata.length];
@@ -51,7 +51,7 @@ public class OffhandCondition extends Condition {
 						checkData[i] = true;
 					}
 				} else {
-					ids[i] = Material.matchMaterial(vardata[i], true);
+					ids[i] = Material.matchMaterial(vardata[i]);
 					datas[i] = 0;
 					checkData[i] = false;
 				}

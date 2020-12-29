@@ -11,6 +11,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import com.nisovin.magicspells.util.Util;
 import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.util.MobUtil;
 import com.nisovin.magicspells.util.TargetInfo;
 import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.spells.TargetedSpell;
@@ -79,7 +80,7 @@ public class CaptureSpell extends TargetedSpell implements TargetedEntitySpell {
 	}
 	
 	private boolean capture(LivingEntity caster, LivingEntity target, float power) {
-		ItemStack item = Util.getEggItemForEntityType(target.getType());
+		ItemStack item = MobUtil.getEggItemForEntityType(target.getType());
 		if (item == null) return false;
 
 		if (powerAffectsQuantity) {

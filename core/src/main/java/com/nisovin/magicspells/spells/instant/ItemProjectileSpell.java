@@ -17,6 +17,7 @@ import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.spells.InstantSpell;
 import com.nisovin.magicspells.util.compat.EventUtil;
 import com.nisovin.magicspells.events.SpellTargetEvent;
+import com.nisovin.magicspells.zones.NoMagicZoneManager;
 import com.nisovin.magicspells.util.magicitems.MagicItem;
 import com.nisovin.magicspells.util.magicitems.MagicItems;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
@@ -60,6 +61,8 @@ public class ItemProjectileSpell extends InstantSpell implements TargetedLocatio
 	private Subspell spellOnDelay;
 	private Subspell spellOnHitEntity;
 	private Subspell spellOnHitGround;
+
+	private NoMagicZoneManager zoneManager;
 
 	public ItemProjectileSpell(MagicConfig config, String spellName) {
 		super(config, spellName);
@@ -126,6 +129,8 @@ public class ItemProjectileSpell extends InstantSpell implements TargetedLocatio
 			if (!spellOnHitGroundName.isEmpty()) MagicSpells.error("ItemProjectileSpell '" + internalName + "' has an invalid spell-on-hit-ground defined!");
 			spellOnHitGround = null;
 		}
+
+		zoneManager = MagicSpells.getNoMagicZoneManager();
 	}
 
 	@Override
@@ -221,6 +226,11 @@ public class ItemProjectileSpell extends InstantSpell implements TargetedLocatio
 			currentLocation = entity.getLocation();
 			currentLocation.setDirection(entity.getVelocity());
 			if (specialEffectInterval > 0 && count % specialEffectInterval == 0) playSpellEffects(EffectPosition.SPECIAL, currentLocation);
+
+			if (zoneManager.willFizzle(currentLocation, ItemProjectileSpell.this)) {
+				stop();
+				return;
+			}
 
 			if (count % spellInterval == 0 && spellOnTick != null && spellOnTick.isTargetedLocationSpell()) {
 				spellOnTick.castAtLocation(caster, currentLocation.clone(), power);

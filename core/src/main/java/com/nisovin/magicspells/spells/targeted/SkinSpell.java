@@ -3,7 +3,7 @@ package com.nisovin.magicspells.spells.targeted;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.LivingEntity;
 
-import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.util.Util;
 import com.nisovin.magicspells.util.TargetInfo;
 import com.nisovin.magicspells.util.MagicConfig;
 import com.nisovin.magicspells.spells.TargetedSpell;
@@ -27,7 +27,7 @@ public class SkinSpell extends TargetedSpell implements TargetedEntitySpell {
 			TargetInfo<Player> targetInfo = getTargetedPlayer(livingEntity, power);
 			if (targetInfo == null || targetInfo.getTarget() == null) return noTarget(livingEntity);
 
-			MagicSpells.getVolatileCodeHandler().setSkin(targetInfo.getTarget(), texture, signature);
+			Util.setSkin(targetInfo.getTarget(), texture, signature);
 		}
 		return PostCastAction.HANDLE_NORMALLY;
 	}
@@ -35,14 +35,14 @@ public class SkinSpell extends TargetedSpell implements TargetedEntitySpell {
 	@Override
 	public boolean castAtEntity(LivingEntity caster, LivingEntity target, float power) {
 		if (!(target instanceof Player)) return false;
-		MagicSpells.getVolatileCodeHandler().setSkin((Player) target, texture, signature);
+		Util.setSkin((Player) target, texture, signature);
 		return true;
 	}
 
 	@Override
 	public boolean castAtEntity(LivingEntity target, float power) {
 		if (!(target instanceof Player)) return false;
-		MagicSpells.getVolatileCodeHandler().setSkin((Player) target, texture, signature);
+		Util.setSkin((Player) target, texture, signature);
 		return true;
 	}
 

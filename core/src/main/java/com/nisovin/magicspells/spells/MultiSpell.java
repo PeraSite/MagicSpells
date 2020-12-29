@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.ArrayList;
 import java.util.regex.Pattern;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
@@ -37,7 +38,7 @@ public final class MultiSpell extends InstantSpell {
 	public MultiSpell(MagicConfig config, String spellName) {
 		super(config, spellName);
 
-		random = new Random();
+		random = ThreadLocalRandom.current();
 
 		actions = new ArrayList<>();
 		spellList = getConfigStringList("spells", null);

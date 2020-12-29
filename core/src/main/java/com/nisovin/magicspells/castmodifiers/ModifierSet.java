@@ -61,13 +61,16 @@ public class ModifierSet {
 	public ModifierSet(List<String> data) {
 		modifiers = new ArrayList<>();
 		for (String s : data) {
-			Modifier m = Modifier.factory(s);
-			if (m != null) {
-				modifiers.add(m);
-				MagicSpells.debug(3, "    Modifier added: " + s);
-			} else {
+			Modifier m = new Modifier();
+			m.process(s);
+
+			if (!m.isInitialized()) {
 				MagicSpells.error("Problem with modifier: " + s);
+				continue;
 			}
+
+			modifiers.add(m);
+			MagicSpells.debug(3, "    Modifier added: " + s);
 		}
 	}
 
@@ -75,7 +78,7 @@ public class ModifierSet {
 		for (Modifier modifier : modifiers) {
 			boolean cont = modifier.apply(event);
 			if (!cont) {
-				String msg = modifier.strModifierFailed != null ? modifier.strModifierFailed : event.getSpell().getStrModifierFailed();
+				String msg = modifier.getStrModifierFailed() != null ? modifier.getStrModifierFailed() : event.getSpell().getStrModifierFailed();
 				MagicSpells.sendMessage(msg, event.getCaster(), event.getSpellArgs());
 				break;
 			}
@@ -93,7 +96,7 @@ public class ModifierSet {
 		for (Modifier modifier : modifiers) {
 			boolean cont = modifier.apply(event);
 			if (!cont) {
-				if (modifier.strModifierFailed != null) MagicSpells.sendMessage(modifier.strModifierFailed, event.getCaster(), MagicSpells.NULL_ARGS);
+				if (modifier.getStrModifierFailed() != null) MagicSpells.sendMessage(modifier.getStrModifierFailed(), event.getCaster(), MagicSpells.NULL_ARGS);
 				break;
 			}
 		}

@@ -9,7 +9,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.configuration.ConfigurationSection;
 
-import com.nisovin.magicspells.MagicSpells;
+import com.nisovin.magicspells.util.Util;
 import com.nisovin.magicspells.util.magicitems.MagicItemData;
 
 public class SkullHandler {
@@ -46,7 +46,7 @@ public class SkullHandler {
 		}
 
 		if (texture != null && skullMeta.getOwningPlayer() != null) {
-			MagicSpells.getVolatileCodeHandler().setTexture(skullMeta, texture, signature, uuid, skullMeta.getOwningPlayer());
+			Util.setTexture(skullMeta, texture, signature, uuid, skullMeta.getOwningPlayer());
 		}
 
 		if (data != null) {
@@ -73,7 +73,7 @@ public class SkullHandler {
 		String signature = data.getSignature();
 
 		if (texture != null && skullMeta.getOwningPlayer() != null) {
-			MagicSpells.getVolatileCodeHandler().setTexture(skullMeta, texture, signature, uuid, skullMeta.getOwningPlayer());
+			Util.setTexture(skullMeta, texture, signature, uuid, skullMeta.getOwningPlayer());
 		}
 		return skullMeta;
 	}

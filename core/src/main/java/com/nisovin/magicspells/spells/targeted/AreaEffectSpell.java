@@ -1,13 +1,10 @@
 package com.nisovin.magicspells.spells.targeted;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.*;
 
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 import org.bukkit.block.Block;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.util.NumberConversions;
 
@@ -40,7 +37,9 @@ public class AreaEffectSpell extends TargetedSpell implements TargetedLocationSp
 
 	private boolean pointBlank;
 	private boolean circleShape;
+	private boolean useProximity;
 	private boolean failIfNoTargets;
+	private boolean reverseProximity;
 	private boolean spellSourceInCenter;
 	
 	public AreaEffectSpell(MagicConfig config, String spellName) {
@@ -56,7 +55,9 @@ public class AreaEffectSpell extends TargetedSpell implements TargetedLocationSp
 
 		pointBlank = getConfigBoolean("point-blank", true);
 		circleShape = getConfigBoolean("circle-shape", false);
+		useProximity = getConfigBoolean("use-proximity", false);
 		failIfNoTargets = getConfigBoolean("fail-if-no-targets", true);
+		reverseProximity = getConfigBoolean("reverse-proximity", false);
 		spellSourceInCenter = getConfigBoolean("spell-source-in-center", false);
 
 		if (vRadius > MagicSpells.getGlobalRadius()) vRadius = MagicSpells.getGlobalRadius();
@@ -106,9 +107,8 @@ public class AreaEffectSpell extends TargetedSpell implements TargetedLocationSp
 				try {
 					Block block = getTargetedBlock(livingEntity, power);
 					if (block != null && !BlockUtils.isAir(block.getType())) loc = block.getLocation().add(0.5, 0, 0.5);
-				} catch (IllegalStateException e) {
-					loc = null;
 				}
+				catch (IllegalStateException ignored) {}
 			}
 
 			if (loc == null) return noTarget(livingEntity);
@@ -143,14 +143,23 @@ public class AreaEffectSpell extends TargetedSpell implements TargetedLocationSp
 	private boolean doAoe(LivingEntity livingEntity, Location location, float basePower) {
 		int count = 0;
 
-		Vector vLoc = livingEntity != null ? livingEntity.getLocation().toVector() : location.toVector();
-		Vector facing = livingEntity != null ? livingEntity.getLocation().getDirection() : location.getDirection();
+		Location finalLoc = livingEntity != null ? livingEntity.getLocation() : location;
 
 		location = Util.makeFinite(location);
-		Collection<Entity> entities = location.getWorld().getNearbyEntities(location, hRadius, vRadius, hRadius);
+		List<LivingEntity> entities = new ArrayList<>(location.getWorld().getNearbyLivingEntities(location, hRadius, vRadius, hRadius));
 
-		for (Entity e : entities) {
-			if (!(e instanceof LivingEntity)) continue;
+		if (useProximity) {
+			// check world before distance
+			for (LivingEntity entity : new ArrayList<>(entities)) {
+				if (entity.getWorld().equals(finalLoc.getWorld())) continue;
+				entities.remove(entity);
+			}
+			Comparator<LivingEntity> comparator = Comparator.comparingDouble(entity -> entity.getLocation().distanceSquared(finalLoc));
+			if (reverseProximity) comparator = comparator.reversed();
+			entities.sort(comparator);
+		}
+
+		for (LivingEntity e : entities) {
 			if (circleShape) {
 				double hDistance = NumberConversions.square(e.getLocation().getX() - location.getX()) + NumberConversions.square(e.getLocation().getZ() - location.getZ());
 				if (hDistance > hRadiusSquared) continue;
@@ -158,11 +167,11 @@ public class AreaEffectSpell extends TargetedSpell implements TargetedLocationSp
 				if (vDistance > vRadiusSquared) continue;
 			}
 			if (pointBlank && cone > 0) {
-				Vector dir = e.getLocation().toVector().subtract(vLoc);
-				if (FastMath.toDegrees(FastMath.abs(dir.angle(facing))) > cone) continue;
+				Vector dir = e.getLocation().toVector().subtract(finalLoc.toVector());
+				if (FastMath.toDegrees(FastMath.abs(dir.angle(finalLoc.getDirection()))) > cone) continue;
 			}
 
-			LivingEntity target = (LivingEntity) e;
+			LivingEntity target = e;
 			float power = basePower;
 
 			if (target.isDead()) continue;
