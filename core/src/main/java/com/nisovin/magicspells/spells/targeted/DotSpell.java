@@ -1,16 +1,12 @@
 package com.nisovin.magicspells.spells.targeted;
 
 import com.nisovin.magicspells.MagicSpells;
-import com.nisovin.magicspells.util.TargetInfo;
-import com.nisovin.magicspells.util.MagicConfig;
-import com.nisovin.magicspells.spells.TargetedSpell;
-import com.nisovin.magicspells.util.compat.EventUtil;
-import com.nisovin.magicspells.handlers.DebugHandler;
 import com.nisovin.magicspells.Spell;
 import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
 import com.nisovin.magicspells.events.SpellApplyDamageEvent;
+import com.nisovin.magicspells.handlers.DebugHandler;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
-import com.nisovin.magicspells.spells.SpellDamageSpell;
+import com.nisovin.magicspells.spells.DamageSpell;
 import com.nisovin.magicspells.spells.TargetedEntitySpell;
 import com.nisovin.magicspells.spells.TargetedSpell;
 import com.nisovin.magicspells.util.MagicConfig;

@@ -1,8 +1,5 @@
 package com.nisovin.magicspells;
 
-import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
-
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.nisovin.magicspells.castmodifiers.ModifierSet;
@@ -13,18 +10,20 @@ import com.nisovin.magicspells.events.SpellTargetEvent;
 import com.nisovin.magicspells.handlers.MoneyHandler;
 import com.nisovin.magicspells.mana.ManaChangeReason;
 import com.nisovin.magicspells.mana.ManaHandler;
-import com.nisovin.magicspells.spelleffects.ArmorStandEffect;
-import com.nisovin.magicspells.spelleffects.EffectLibEffect;
 import com.nisovin.magicspells.spelleffects.EffectPosition;
 import com.nisovin.magicspells.spelleffects.SpellEffect;
+import com.nisovin.magicspells.spelleffects.effecttypes.ArmorStandEffect;
+import com.nisovin.magicspells.spelleffects.effecttypes.EffectLibEffect;
+import com.nisovin.magicspells.spelleffects.effecttypes.EntityEffect;
 import com.nisovin.magicspells.spelleffects.trackers.EffectTracker;
+import com.nisovin.magicspells.spells.BuffSpell;
 import com.nisovin.magicspells.spells.PassiveSpell;
 import com.nisovin.magicspells.util.*;
 import com.nisovin.magicspells.util.compat.EventUtil;
 import com.nisovin.magicspells.util.magicitems.MagicItem;
 import com.nisovin.magicspells.util.magicitems.MagicItemDataParser;
 import com.nisovin.magicspells.util.magicitems.MagicItems;
-import com.nisovin.magicspells.variables.VariableManager;
+import com.nisovin.magicspells.util.managers.VariableManager;
 import de.slikey.effectlib.Effect;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -51,56 +50,11 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scoreboard.Scoreboard;
-import org.bukkit.command.CommandSender;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.Damageable;
-import org.bukkit.inventory.EntityEquipment;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
-
-import com.nisovin.magicspells.util.Util;
-import com.nisovin.magicspells.util.IntMap;
-import com.nisovin.magicspells.util.TxtUtil;
-import com.nisovin.magicspells.util.TimeUtil;
-import com.nisovin.magicspells.util.CastItem;
-import com.nisovin.magicspells.spelleffects.*;
-import com.nisovin.magicspells.util.TargetInfo;
-import com.nisovin.magicspells.util.BlockUtils;
-import com.nisovin.magicspells.mana.ManaHandler;
-import com.nisovin.magicspells.util.VariableMod;
-import com.nisovin.magicspells.util.MagicConfig;
-import com.nisovin.magicspells.spells.BuffSpell;
-import com.nisovin.magicspells.util.LocationUtil;
-import com.nisovin.magicspells.util.InventoryUtil;
-import com.nisovin.magicspells.util.SpellReagents;
-import com.nisovin.magicspells.spells.PassiveSpell;
-import com.nisovin.magicspells.util.ExperienceUtils;
-import com.nisovin.magicspells.util.ValidTargetList;
-import com.nisovin.magicspells.util.compat.EventUtil;
-import com.nisovin.magicspells.mana.ManaChangeReason;
-import com.nisovin.magicspells.events.SpellCastEvent;
-import com.nisovin.magicspells.handlers.DebugHandler;
-import com.nisovin.magicspells.handlers.MoneyHandler;
-import com.nisovin.magicspells.events.SpellCastedEvent;
-import com.nisovin.magicspells.events.SpellTargetEvent;
-import com.nisovin.magicspells.util.ValidTargetChecker;
-import com.nisovin.magicspells.util.magicitems.MagicItem;
-import com.nisovin.magicspells.castmodifiers.ModifierSet;
-import com.nisovin.magicspells.util.magicitems.MagicItems;
-import com.nisovin.magicspells.util.managers.VariableManager;
-import com.nisovin.magicspells.util.magicitems.MagicItemDataParser;
-import com.nisovin.magicspells.spelleffects.trackers.EffectTracker;
-import com.nisovin.magicspells.spelleffects.effecttypes.EntityEffect;
-import com.nisovin.magicspells.spelleffects.effecttypes.EffectLibEffect;
-import com.nisovin.magicspells.spelleffects.effecttypes.ArmorStandEffect;
-import com.nisovin.magicspells.events.MagicSpellsEntityDamageByEntityEvent;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
 
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class Spell implements Comparable<Spell>, Listener {
 
@@ -315,7 +269,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 			}
 		}
 		experience = config.getInt(path + "experience", 0);
-		broadcastRange = config.getInt(path + "broadcast-range", MagicSpells.plugin.broadcastRange);
+		broadcastRange = config.getInt(path + "broadcast-range", MagicSpells.getBroadcastRange());
 
 		// Cast time
 		castTime = config.getInt(path + "cast-time", 0);
@@ -1380,7 +1334,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 		// Get valid targets
 		List<LivingEntity> entities;
-		if (MagicSpells.plugin.checkWorldPvpFlag && validTargetList.canTargetPlayers() && !isBeneficial() && !livingEntity.getWorld().getPVP()) {
+		if (MagicSpells.checkWorldPvpFlag() && validTargetList.canTargetPlayers() && !isBeneficial() && !livingEntity.getWorld().getPVP()) {
 			entities = validTargetList.filterTargetListCastingAsLivingEntities(livingEntity, ne, false);
 		} else if (forceTargetPlayers) {
 			entities = validTargetList.filterTargetListCastingAsLivingEntities(livingEntity, ne, true);
@@ -1414,7 +1368,7 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 			}
 
 			// Check for teams
-			if (target instanceof Player && MagicSpells.plugin.checkScoreboardTeams) {
+			if (target instanceof Player && MagicSpells.checkScoreboardTeams()) {
 				if (!(livingEntity instanceof Player)) continue;
 				Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
 				Team playerTeam = scoreboard.getPlayerTeam((Player) livingEntity);
@@ -1953,9 +1907,9 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 		COOLDOWN_ONLY(true, false, false),
 		DELAYED(false, false, false);
 
-		private boolean cooldown;
-		private boolean reagents;
-		private boolean messages;
+		private final boolean cooldown;
+		private final boolean reagents;
+		private final boolean messages;
 
 		PostCastAction(boolean cooldown, boolean reagents, boolean messages) {
 			this.cooldown = cooldown;
@@ -1991,15 +1945,15 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	public class DelayedSpellCast implements Runnable, Listener {
 
-		private LivingEntity livingEntity;
-		private Location prevLoc;
-		private Spell spell;
-		private SpellCastEvent spellCast;
-		private int taskId;
+		private final LivingEntity livingEntity;
+		private final Location prevLoc;
+		private final Spell spell;
+		private final SpellCastEvent spellCast;
+		private final int taskId;
 		private boolean cancelled = false;
-		private double motionToleranceX = 0.2;
-		private double motionToleranceY = 0.2;
-		private double motionToleranceZ = 0.2;
+		private final double motionToleranceX = 0.2;
+		private final double motionToleranceY = 0.2;
+		private final double motionToleranceZ = 0.2;
 
 		public DelayedSpellCast(SpellCastEvent spellCast) {
 			this.spellCast = spellCast;
@@ -2064,20 +2018,20 @@ public abstract class Spell implements Comparable<Spell>, Listener {
 
 	public class DelayedSpellCastWithBar implements Runnable, Listener {
 
-		private LivingEntity livingEntity;
-		private Location prevLoc;
-		private Spell spell;
-		private SpellCastEvent spellCast;
-		private int castTime;
-		private int taskId;
+		private final LivingEntity livingEntity;
+		private final Location prevLoc;
+		private final Spell spell;
+		private final SpellCastEvent spellCast;
+		private final int castTime;
+		private final int taskId;
 		private boolean cancelled = false;
 
-		private int interval = 5;
+		private final int interval = 5;
 		private int elapsed = 0;
 
-		private double motionToleranceX = 0.2;
-		private double motionToleranceY = 0.2;
-		private double motionToleranceZ = 0.2;
+		private final double motionToleranceX = 0.2;
+		private final double motionToleranceY = 0.2;
+		private final double motionToleranceZ = 0.2;
 
 		public DelayedSpellCastWithBar(SpellCastEvent spellCast) {
 			this.spellCast = spellCast;
